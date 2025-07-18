@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chasync_scheduler"
+version = "0.1.0"
+description = "An asynchronous and persistent scheduling library"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+
+authors = [
+  { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12"
+]
+
+[tool.setuptools.packages.find]
+where = ["taskshed"]
