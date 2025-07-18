@@ -1,4 +1,4 @@
-# TaskShed
+# TaskShed 🛖
 
 `taskshed` is a performant, asynchronous task scheduling framework built with Python's `asyncio`. It allows you to schedule one-off or recurring (interval) coroutine tasks, with a modular architecture that separates execution, scheduling, and data storage.
 
