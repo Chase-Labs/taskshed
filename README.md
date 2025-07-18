@@ -10,5 +10,5 @@
 - 📦 Schedule, update and remove multiple tasks in a single database transaction.
 - 🙋‍♂️ Attach (indexable) groups to tasks, allowing for easy user-based management.
 - ⏰ Supports both one-time (`date`) and recurring (`interval`) tasks.
-- 🧱 Pluggable data stores (e.g. in-memory, future DB stores)
+- 🧱 Pluggable data stores (e.g. in-memory, MySQL and Redis)
 
