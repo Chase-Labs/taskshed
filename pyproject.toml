@@ -1,19 +1,29 @@
+# -------------------------------------------------------------------------------- build system requirements
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# -------------------------------------------------------------------------------- project description
 [project]
 name = "taskshed"
+<<<<<<< HEAD
 version = "pre-release-0.0.1"
 description = "An asynchronous and persistent scheduling library"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 
+=======
+version = "0.1.0"
+>>>>>>> 48c42b3 (Add MIT License, update project metadata, and remove setup.py)
 authors = [
   { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
 ]
-
+description = "A high-performant, asynchronous and persistent scheduling library written in Python."
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["scheduling", "scheduler", "tasks", "queue", "redis", "mysql"]
+license = { text = "MIT" }
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -23,8 +33,31 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+<<<<<<< HEAD
   "Programming Language :: Python :: 3.13"
+=======
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14"
+>>>>>>> 48c42b3 (Add MIT License, update project metadata, and remove setup.py)
 ]
 
+# -------------------------------------------------------------------------------- urls
+[project.urls]
+"Homepage" = "https://github.com/Chase-Labs/taskshed"
+"Bug Tracker" = "https://github.com/Chase-Labs/taskshed/issues"
+
+# -------------------------------------------------------------------------------- optional dependencies
+[project.optional-dependencies]
+mysql = [
+    "aiomysql>=0.2.0",
+]
+redis = [
+    "redis>=6.2.0",
+]
+all = [
+    "taskshed[mysql,redis]"
+]
+
+# -------------------------------------------------------------------------------- dependencies
 [tool.setuptools.packages.find]
 where = ["taskshed"]

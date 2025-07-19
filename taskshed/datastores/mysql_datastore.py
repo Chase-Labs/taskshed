@@ -49,7 +49,7 @@ class MySQLDataStore(DataStore):
     """
 
     _DELETE_ALL_taskS_QUERY = """
-    DELETE FROM _aioscheduler_tasks 
+    DELETE FROM _aioscheduler_tasks
     WHERE
         paused IN (0 , 1)
     """
