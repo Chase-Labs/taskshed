@@ -10,12 +10,16 @@ from taskshed.workers.event_driven_worker import EventDrivenWorker
 
 # -------------------------------------------------------------------------------- fixtures
 
+mock_callback = AsyncMock()
+
 
 @pytest_asyncio.fixture
 async def worker() -> EventDrivenWorker:
-    store = InMemoryDataStore(callback_map={})
+    store = InMemoryDataStore()
     await store.start()
-    worker = EventDrivenWorker(data_store=store)
+    worker = EventDrivenWorker(
+        callback_map={"mock_callback": mock_callback}, data_store=store
+    )
     await worker.start()
     return worker
 
@@ -25,10 +29,8 @@ async def worker() -> EventDrivenWorker:
 
 @pytest.mark.asyncio
 async def test_run_date_task(worker: EventDrivenWorker):
-    mock_callback = AsyncMock()
-
     task = Task(
-        callback=mock_callback,
+        callback="mock_callback",
         kwargs={"some_arg": 123},
         schedule_type="date",
         run_at=datetime.now(timezone.utc),

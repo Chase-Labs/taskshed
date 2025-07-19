@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from taskshed.datastores.memory_datastore import InMemoryDataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 from taskshed.schedulers.async_scheduler import AsyncScheduler
+from taskshed.workers.event_driven_worker import EventDrivenWorker
 
 # -------------------------------------------------------------------------------- helpers
 
@@ -23,8 +24,11 @@ mock_callback = AsyncMock()
 async def get_scheduler() -> AsyncGenerator[AsyncScheduler, None]:
     global mock_callback
     mock_callback.reset_mock()
-    store = InMemoryDataStore(callback_map={"mock_callback": mock_callback})
-    scheduler = AsyncScheduler(data_store=store)
+    store = InMemoryDataStore()
+    worker = EventDrivenWorker(
+        callback_map={"mock_callback": mock_callback}, data_store=store
+    )
+    scheduler = AsyncScheduler(data_store=store, worker=worker)
     try:
         await scheduler.start()
         yield scheduler
@@ -42,7 +46,7 @@ async def test_add_task():
         task_id = uuid4().hex
         scheduled_task = Task(
             run_at=start_time,
-            callback=mock_callback,
+            callback="mock_callback",
             schedule_type="date",
             task_id=task_id,
         )
@@ -64,7 +68,7 @@ async def test_add_date_task_and_run():
         task_id = uuid4().hex
         scheduled_task = Task(
             run_at=start_time,
-            callback=mock_callback,
+            callback="mock_callback",
             schedule_type="date",
             task_id=task_id,
             kwargs={"some_kwarg": 123},
@@ -96,7 +100,7 @@ async def test_add_interval_task_and_run():
         task_id = uuid4().hex
         scheduled_task = Task(
             run_at=start_time,
-            callback=mock_callback,
+            callback="mock_callback",
             schedule_type="interval",
             interval=timedelta(seconds=delay),
             task_id=task_id,
@@ -121,7 +125,7 @@ async def test_add_many_tasks():
             scheduled_tasks.append(
                 Task(
                     run_at=start_time + timedelta(seconds=i),
-                    callback=mock_callback,
+                    callback="mock_callback",
                     schedule_type="date",
                 )
             )
@@ -150,7 +154,7 @@ async def test_pause_and_resume_tasks():
             scheduled_tasks.append(
                 Task(
                     run_at=start_time + timedelta(seconds=i),
-                    callback=mock_callback,
+                    callback="mock_callback",
                     schedule_type="date",
                     group_id=group_id,
                 )
@@ -190,7 +194,7 @@ async def test_update_task_execution_time():
             scheduled_tasks.append(
                 Task(
                     run_at=start_time + timedelta(seconds=i),
-                    callback=mock_callback,
+                    callback="mock_callback",
                     schedule_type="date",
                     group_id=group_id,
                 )
@@ -221,7 +225,7 @@ async def test_add_tasks_in_different_timezones():
         # Add a task without a specified timezone
         naive_task = Task(
             run_at=naive_start,
-            callback=mock_callback,
+            callback="mock_callback",
             schedule_type="date",
         )
 
@@ -231,7 +235,7 @@ async def test_add_tasks_in_different_timezones():
             aware_tasks.append(
                 Task(
                     run_at=aware_start + timedelta(seconds=interval * i),
-                    callback=mock_callback,
+                    callback="mock_callback",
                     schedule_type="date",
                     task_id=iana_timezone,
                 )
@@ -258,7 +262,7 @@ async def test_remove_tasks():
 
         # Add isolated tasks - tasks without a group
         isolated_tasks = [
-            Task(run_at=start_time, callback=mock_callback, schedule_type="date")
+            Task(run_at=start_time, callback="mock_callback", schedule_type="date")
             for _ in range(num_isolated_tasks)
         ]
         await scheduler.add_tasks(isolated_tasks)
@@ -269,7 +273,7 @@ async def test_remove_tasks():
         group_tasks = [
             Task(
                 run_at=group_run_time,
-                callback=mock_callback,
+                callback="mock_callback",
                 schedule_type="date",
                 group_id=group_id,
             )
@@ -307,7 +311,7 @@ async def test_fetch_tasks_by_group_id():
         group_tasks = [
             Task(
                 run_at=start_time + timedelta(seconds=i),
-                callback=mock_callback,
+                callback="mock_callback",
                 schedule_type="date",
                 group_id=group_id,
             )
@@ -316,7 +320,7 @@ async def test_fetch_tasks_by_group_id():
 
         other_task = Task(
             run_at=start_time,
-            callback=mock_callback,
+            callback="mock_callback",
             schedule_type="date",
         )
 
@@ -348,7 +352,7 @@ async def test_add_task_replace_existing_behaviour():
 
         first_task = Task(
             run_at=start_time,
-            callback=mock_callback,
+            callback="mock_callback",
             schedule_type="date",
             task_id=task_id,
         )

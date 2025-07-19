@@ -27,14 +27,14 @@ async def benchmark_aioscheduler_mysql_high_concurrency(num_tasks: int):
     from tests.benchmarks.utils import build_mysql_taskshed
 
     observer = _build_observer(num_tasks)
-    scheduler = await build_mysql_taskshed({"callback": observer.callback})
+    scheduler = await build_mysql_taskshed({"observer_callback": observer.callback})
 
     schedule_start = perf_counter()
     tasks = [
         Task(
             task_id=uuid4().hex,
             run_at=START_DT + timedelta(seconds=uniform(0, 1)),
-            callback=observer.callback,
+            callback="observer_callback",
             schedule_type="date",
         )
         for _ in range(num_tasks)
@@ -51,14 +51,14 @@ async def benchmark_aioscheduler_redis_high_concurrency(num_tasks: int):
     from tests.benchmarks.utils import build_redis_taskshed
 
     observer = _build_observer(num_tasks)
-    scheduler = await build_redis_taskshed({"callback": observer.callback})
+    scheduler = await build_redis_taskshed({"observer_callback": observer.callback})
 
     schedule_start = perf_counter()
     tasks = [
         Task(
             task_id=uuid4().hex,
             run_at=START_DT + timedelta(seconds=uniform(0, 1)),
-            callback=observer.callback,
+            callback="observer_callback",
             schedule_type="date",
         )
         for _ in range(num_tasks)
