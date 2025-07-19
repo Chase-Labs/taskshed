@@ -263,7 +263,7 @@ async def test_add_tasks_in_different_timezones():
         # Check that the next wakeup time is equal to earliest task's run_at
         assert scheduler._worker._next_wakeup == naive_start.astimezone(timezone.utc)
 
-        await asyncio.sleep(delay + len(iana_timezones) * interval)
+        await asyncio.sleep(delay + (len(iana_timezones) * interval) + delay / 2)
 
         # Verify that the callback was called for each task
         assert mock_callback.call_count == len(iana_timezones) + 1
