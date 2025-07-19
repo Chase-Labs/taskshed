@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # -------------------------------------------------------------------------------- project metadata
 [project]
 name = "taskshed"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
   { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
 ]
@@ -16,7 +16,7 @@ requires-python = ">=3.8"
 keywords = ["scheduling", "scheduler", "tasks", "queue", "redis", "mysql"]
 license = { text = "MIT" }
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3.8",
