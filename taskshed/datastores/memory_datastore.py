@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Awaitable, Callable, TypeVar
+from typing import TypeVar
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
@@ -15,8 +15,7 @@ class InMemoryDataStore(DataStore):
     An in-memory task store with no persistence. Useful for unit tests or quick prototyping.
     """
 
-    def __init__(self, callback_map: dict[str, Callable[..., Awaitable[T]]]):
-        super().__init__(callback_map)
+    def __init__(self):
         self._db: dict[str, Task] = {}
         self._lock: asyncio.Lock | None = None
 

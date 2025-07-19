@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import AsyncGenerator, Awaitable, Callable, TypeVar
+from typing import AsyncGenerator, TypeVar
 
 import aiomysql
 
@@ -42,31 +42,31 @@ class MySQLDataStore(DataStore):
     INDEX idx_paused_run_at (paused ASC, run_at ASC)
     """
 
-    _DELETE_taskS_QUERY = """
-    DELETE FROM _aioscheduler_tasks
+    _DELETE_TASKS_QUERY = """
+    DELETE FROM _taskshed_data
     WHERE
         task_id IN %s
     """
 
-    _DELETE_ALL_taskS_QUERY = """
-    DELETE FROM _aioscheduler_tasks
+    _DELETE_ALL_TASKS_QUERY = """
+    DELETE FROM _taskshed_data
     WHERE
         paused IN (0 , 1)
     """
 
-    _DELETE_GROUP_taskS_QUERY = """
-    DELETE FROM _aioscheduler_tasks
+    _DELETE_GROUP_TASKS_QUERY = """
+    DELETE FROM _taskshed_data
     WHERE
         group_id = %s
     """
 
-    _INSERT_taskS_WITHOUT_REPLACEMENT_QUERY = """
-    INSERT INTO _aioscheduler_tasks (task_id, run_at, paused, callback_name, kwargs, schedule_type, interval, group_id)
+    _INSERT_TASKS_WITHOUT_REPLACEMENT_QUERY = """
+    INSERT INTO _taskshed_data (task_id, run_at, paused, callback_name, kwargs, schedule_type, interval, group_id)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """
 
-    _INSERT_taskS_WITH_REPLACEMENT_QUERY = """
-    INSERT INTO _aioscheduler_tasks (task_id, run_at, paused, callback_name, kwargs, schedule_type, interval, group_id)
+    _INSERT_TASKS_WITH_REPLACEMENT_QUERY = """
+    INSERT INTO _taskshed_data (task_id, run_at, paused, callback_name, kwargs, schedule_type, interval, group_id)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS new
         ON DUPLICATE KEY UPDATE
             run_at = new.run_at,
@@ -76,20 +76,20 @@ class MySQLDataStore(DataStore):
             group_id = new.group_id
     """
 
-    _SELECT_taskS_QUERY = """
+    _SELECT_TASKS_QUERY = """
     SELECT
         *
     FROM
-        _aioscheduler_tasks
+        _taskshed_data
     WHERE
         task_id IN %s
     """
 
-    _SELECT_DUE_taskS_QUERY = """
+    _SELECT_DUE_TASKS_QUERY = """
     SELECT 
         *
     FROM
-        _aioscheduler_tasks
+        _taskshed_data
     WHERE
         paused = 0 AND run_at <= %s 
     """
@@ -98,31 +98,31 @@ class MySQLDataStore(DataStore):
     SELECT
         MIN(run_at) AS next_wakeup
     FROM
-        _aioscheduler_tasks
+        _taskshed_data
     WHERE
         paused = 0
     LIMIT 1
     """
 
-    _SELECT_GROUP_taskS_QUERY = """
+    _SELECT_GROUP_TASKS_QUERY = """
     SELECT
         *
     FROM
-        _aioscheduler_tasks
+        _taskshed_data
     WHERE
         group_id = %s
     """
 
-    _UPDATE_taskS_RUN_AT_QUERY = """
-    UPDATE _aioscheduler_tasks
+    _UPDATE_TASKS_RUN_AT_QUERY = """
+    UPDATE _taskshed_data
     SET
         run_at = %s
     WHERE
         task_id = %s
     """
 
-    _UPDATE_taskS_PAUSED_STATUS_QUERY = """
-    UPDATE _aioscheduler_tasks
+    _UPDATE_TASKS_PAUSED_STATUS_QUERY = """
+    UPDATE _taskshed_data
     SET
         paused = %s
     WHERE
@@ -130,7 +130,7 @@ class MySQLDataStore(DataStore):
     """
 
     _UPDATE_GROUP_PAUSE_QUERY = """
-    UPDATE _aioscheduler_tasks
+    UPDATE _taskshed_data
     SET
         paused = %s
     WHERE
@@ -139,10 +139,7 @@ class MySQLDataStore(DataStore):
 
     # -------------------------------------------------------------------------------- private methods
 
-    def __init__(
-        self, callback_map: dict[str, Callable[..., Awaitable[T]]], config: MySQLConfig
-    ):
-        super().__init__(callback_map)
+    def __init__(self, config: MySQLConfig):
         self._config = config
         self._lock: asyncio.Lock | None = None
         self._pool: aiomysql.Pool | None = None
@@ -167,7 +164,7 @@ class MySQLDataStore(DataStore):
             task_id=row["task_id"],
             run_at=row["run_at"],
             paused=bool(row["paused"]),
-            callback=self._get_callback(row["callback_name"]),
+            callback=row["callback_name"],
             kwargs=json.loads(row["kwargs"]),
             schedule_type=row["schedule_type"],
             interval=interval,
@@ -202,9 +199,9 @@ class MySQLDataStore(DataStore):
         self, tasks: Iterable[Task], *, replace_existing: bool = True
     ) -> None:
         query = (
-            self._INSERT_taskS_WITH_REPLACEMENT_QUERY
+            self._INSERT_TASKS_WITH_REPLACEMENT_QUERY
             if replace_existing
-            else self._INSERT_taskS_WITHOUT_REPLACEMENT_QUERY
+            else self._INSERT_TASKS_WITHOUT_REPLACEMENT_QUERY
         )
 
         async with self._get_cursor() as cursor:
@@ -215,7 +212,7 @@ class MySQLDataStore(DataStore):
                         task.task_id,
                         task.run_at,
                         task.paused,
-                        self._get_callback_name(task.callback),
+                        task.callback,
                         json.dumps(task.kwargs),
                         task.schedule_type,
                         task.interval_seconds(),
@@ -228,7 +225,7 @@ class MySQLDataStore(DataStore):
     async def fetch_due_tasks(self, dt: datetime) -> list[Task]:
         async with self._lock:
             async with self._get_cursor() as cursor:
-                await cursor.execute(self._SELECT_DUE_taskS_QUERY, (dt,))
+                await cursor.execute(self._SELECT_DUE_TASKS_QUERY, (dt,))
                 rows = await cursor.fetchall()
 
             return [self._create_task(row) for row in rows]
@@ -244,20 +241,20 @@ class MySQLDataStore(DataStore):
 
     async def fetch_tasks(self, task_ids: Iterable[str]) -> list[Task]:
         async with self._get_cursor() as cursor:
-            await cursor.execute(self._SELECT_taskS_QUERY, (task_ids,))
+            await cursor.execute(self._SELECT_TASKS_QUERY, (task_ids,))
             rows = await cursor.fetchall()
         return [self._create_task(row) for row in rows]
 
     async def fetch_group_tasks(self, group_id: str) -> list[Task]:
         async with self._get_cursor() as cursor:
-            await cursor.execute(self._SELECT_GROUP_taskS_QUERY, (group_id,))
+            await cursor.execute(self._SELECT_GROUP_TASKS_QUERY, (group_id,))
             rows = await cursor.fetchall()
         return [self._create_task(row) for row in rows]
 
     async def update_execution_times(self, tasks: Iterable[TaskExecutionTime]) -> None:
         async with self._get_cursor() as cursor:
             await cursor.executemany(
-                self._UPDATE_taskS_RUN_AT_QUERY,
+                self._UPDATE_TASKS_RUN_AT_QUERY,
                 ((task.run_at, task.task_id) for task in tasks),
             )
 
@@ -266,7 +263,7 @@ class MySQLDataStore(DataStore):
     ) -> None:
         async with self._get_cursor() as cursor:
             await cursor.execute(
-                self._UPDATE_taskS_PAUSED_STATUS_QUERY, (paused, task_ids)
+                self._UPDATE_TASKS_PAUSED_STATUS_QUERY, (paused, task_ids)
             )
 
     async def update_group_paused_status(self, group_id: str, paused: bool) -> None:
@@ -276,13 +273,13 @@ class MySQLDataStore(DataStore):
     async def remove_tasks(self, task_ids: Iterable[str]) -> None:
         async with self._lock:
             async with self._get_cursor() as cursor:
-                await cursor.execute(self._DELETE_taskS_QUERY, (task_ids,))
+                await cursor.execute(self._DELETE_TASKS_QUERY, (task_ids,))
 
     async def remove_all_tasks(self) -> None:
         async with self._lock:
             async with self._get_cursor() as cursor:
-                await cursor.execute(self._DELETE_ALL_taskS_QUERY)
+                await cursor.execute(self._DELETE_ALL_TASKS_QUERY)
 
     async def remove_group_tasks(self, group_id: str) -> None:
         async with self._get_cursor() as cursor:
-            await cursor.execute(self._DELETE_GROUP_taskS_QUERY, (group_id,))
+            await cursor.execute(self._DELETE_GROUP_TASKS_QUERY, (group_id,))
