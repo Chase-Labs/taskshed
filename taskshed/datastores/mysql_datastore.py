@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from collections.abc import Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -11,9 +10,6 @@ import aiomysql
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("MySQLDataStore")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -231,10 +227,8 @@ class MySQLDataStore(DataStore):
                         for task in tasks
                     ),
                 )
-            except Exception as e:
-                logger.error(f"Error adding tasks: {e}")
-                logger.error(f"Query: {cursor._last_executed}")
-                raise
+            except aiomysql.IntegrityError:
+                return
 
     async def fetch_due_tasks(self, dt: datetime) -> list[Task]:
         async with self._lock:

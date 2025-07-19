@@ -18,6 +18,8 @@ from taskshed.workers.event_driven_worker import EventDrivenWorker
 
 
 mock_callback = AsyncMock()
+second_callback = AsyncMock()
+third_callback = AsyncMock()
 
 
 @asynccontextmanager
@@ -26,7 +28,12 @@ async def get_scheduler() -> AsyncGenerator[AsyncScheduler, None]:
     mock_callback.reset_mock()
     store = InMemoryDataStore()
     worker = EventDrivenWorker(
-        callback_map={"mock_callback": mock_callback}, data_store=store
+        callback_map={
+            "mock_callback": mock_callback,
+            "second_callback": second_callback,
+            "third_callback": third_callback,
+        },
+        data_store=store,
     )
     scheduler = AsyncScheduler(data_store=store, worker=worker)
     try:
@@ -359,10 +366,9 @@ async def test_add_task_replace_existing_behaviour():
 
         await scheduler.add_task(first_task)
 
-        new_callback = AsyncMock()
         later_task = Task(
             run_at=start_time + timedelta(seconds=10),
-            callback=new_callback,
+            callback="second_callback",
             schedule_type="date",
             task_id=task_id,
         )
@@ -371,16 +377,16 @@ async def test_add_task_replace_existing_behaviour():
         await scheduler.add_task(later_task)
         stored_tasks = await scheduler.fetch_tasks(task_ids=[task_id])
         stored_task = stored_tasks[0]
-        assert stored_task.callback == new_callback
+        assert stored_task.callback == "second_callback"
 
         # Do not replace existing task
         even_later_task = Task(
             run_at=start_time + timedelta(seconds=20),
-            callback=AsyncMock(),
+            callback="third_callback",
             schedule_type="date",
             task_id=task_id,
         )
         await scheduler.add_task(even_later_task, replace_existing=False)
         stored_task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
-        assert stored_task.callback == new_callback
+        assert stored_task.callback == "second_callback"
         assert stored_task.run_at == start_time + timedelta(seconds=10)
