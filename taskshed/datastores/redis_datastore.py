@@ -1,12 +1,17 @@
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from math import isinf
 from typing import Iterable
 
 from redis.asyncio import Redis
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
+
+logger = logging.getLogger("RedisDataStore")
+logging.basicConfig(level=logging.INFO)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -33,6 +38,16 @@ class RedisDataStore(DataStore):
     """
 
     KEY_PREFIX = "scheduler"
+
+    # -------------------------------------------------------------------------------- scripts
+
+    LUA_HSETNX_SCRIPT = """
+    if redis.call("EXISTS", KEYS[1]) == 0 then
+        return redis.call("HSET", KEYS[1], unpack(ARGV))
+    else
+        return 0
+    end
+    """
 
     # -------------------------------------------------------------------------------- private methods
 
@@ -85,6 +100,7 @@ class RedisDataStore(DataStore):
             password=self._config.password,
             decode_responses=True,
         )
+        self._hsetallnx = self._client.register_script(self.LUA_HSETNX_SCRIPT)
 
     async def shutdown(self) -> None:
         if hasattr(self, "_client"):
@@ -100,10 +116,21 @@ class RedisDataStore(DataStore):
                 {task.task_id: task.run_at.timestamp()},
                 nx=not replace_existing,
             )
-            pipeline.hset(
-                self._get_task_index(task.task_id),
-                mapping=self._serialize_task(task),
-            )
+
+            serialized_task = self._serialize_task(task)
+            if replace_existing:
+                pipeline.hset(
+                    self._get_task_index(task.task_id),
+                    mapping=serialized_task,
+                )
+            else:
+                args = [item for pair in serialized_task.items() for item in pair]
+                self._hsetallnx(
+                    keys=[self._get_task_index(task.task_id)],
+                    args=args,
+                    client=pipeline,  # Execute the script within the pipeline
+                )
+
             if task.group_id is not None:
                 pipeline.sadd(self._get_group_index(task.group_id), task.task_id)
         await pipeline.execute()
@@ -129,7 +156,9 @@ class RedisDataStore(DataStore):
     async def fetch_next_wakeup(self) -> datetime | None:
         res = await self._client.zrange(self._queue_index, 0, 0, withscores=True)
         if res:
-            return datetime.fromtimestamp(res[0][1])
+            next_wakeup = res[0][1]
+            if not isinf(next_wakeup):
+                return datetime.fromtimestamp(next_wakeup)
 
     async def fetch_tasks(self, task_ids: Iterable[str]) -> list[Task]:
         if not task_ids:
