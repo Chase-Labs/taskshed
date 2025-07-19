@@ -18,10 +18,10 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 from taskshed.schedulers.async_scheduler import AsyncScheduler
 from taskshed.workers.event_driven_worker import EventDrivenWorker
 
+load_dotenv()
+
 # -------------------------------------------------------------------------------- helpers
 
-
-load_dotenv()
 
 mock_callback = AsyncMock()
 second_callback = AsyncMock()
