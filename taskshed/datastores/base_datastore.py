@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Iterable, TypeVar
+from typing import Iterable
 
 from taskshed.models.task_models import Task, TaskExecutionTime
-
-T = TypeVar("T")
 
 
 class DataStore(ABC):

@@ -11,6 +11,7 @@ from rq_scheduler import Scheduler as RQScheduler
 from taskshed.datastores.mysql_datastore import MySQLConfig, MySQLDataStore
 from taskshed.datastores.redis_datastore import RedisConfig, RedisDataStore
 from taskshed.schedulers.async_scheduler import AsyncScheduler
+from taskshed.workers.event_driven_worker import EventDrivenWorker
 
 
 def _load_env():
@@ -20,10 +21,9 @@ def _load_env():
     load_dotenv(dotenv_path)
 
 
-async def build_mysql_aioscheduler(callback_map: dict) -> AsyncScheduler:
+async def build_mysql_taskshed(callback_map: dict) -> AsyncScheduler:
     _load_env()
     data_store = MySQLDataStore(
-        callback_map=callback_map,
         config=MySQLConfig(
             host=os.environ.get("MYSQL_HOST"),
             user=os.environ.get("MYSQL_USER"),
@@ -31,7 +31,9 @@ async def build_mysql_aioscheduler(callback_map: dict) -> AsyncScheduler:
             db=os.environ.get("MYSQL_DB"),
         ),
     )
-    scheduler = AsyncScheduler(data_store=data_store)
+
+    worker = EventDrivenWorker(callback_map=callback_map, data_store=data_store)
+    scheduler = AsyncScheduler(data_store=data_store, worker=worker)
 
     await scheduler._data_store.start()
     await scheduler._data_store.remove_all_tasks()
@@ -39,7 +41,7 @@ async def build_mysql_aioscheduler(callback_map: dict) -> AsyncScheduler:
     return scheduler
 
 
-async def build_redis_aioscheduler(callback_map: dict) -> AsyncScheduler:
+async def build_redis_taskshed(callback_map: dict) -> AsyncScheduler:
     data_store = RedisDataStore(
         callback_map=callback_map,
         config=RedisConfig(
@@ -49,7 +51,8 @@ async def build_redis_aioscheduler(callback_map: dict) -> AsyncScheduler:
             password=None,
         ),
     )
-    scheduler = AsyncScheduler(data_store=data_store)
+    worker = EventDrivenWorker(callback_map=callback_map, data_store=data_store)
+    scheduler = AsyncScheduler(data_store=data_store, worker=worker)
 
     await scheduler._data_store.start()
     await scheduler._data_store.remove_all_tasks()

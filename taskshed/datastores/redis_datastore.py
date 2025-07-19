@@ -1,14 +1,12 @@
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Awaitable, Callable, Iterable, TypeVar
+from typing import Iterable
 
 from redis.asyncio import Redis
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -38,10 +36,7 @@ class RedisDataStore(DataStore):
 
     # -------------------------------------------------------------------------------- private methods
 
-    def __init__(
-        self, callback_map: dict[str, Callable[..., Awaitable[T]]], config: RedisConfig
-    ):
-        super().__init__(callback_map)
+    def __init__(self, config: RedisConfig):
         self._config = config
         self._queue_index = f"{self.KEY_PREFIX}:task_queue"
 
@@ -56,7 +51,7 @@ class RedisDataStore(DataStore):
             "task_id": task.task_id,
             "run_at": task.run_at.timestamp(),
             "paused": int(task.paused),
-            "callback_name": self._get_callback_name(task.callback),
+            "callback_name": task.callback,
             "kwargs": json.dumps(task.kwargs),
             "schedule_type": task.schedule_type,
             "interval": task.interval_seconds() if task.interval else "",
@@ -73,7 +68,7 @@ class RedisDataStore(DataStore):
             task_id=data["task_id"],
             run_at=datetime.fromtimestamp(float(data["run_at"])),
             paused=bool(int(data["paused"])),
-            callback=self._get_callback(data["callback_name"]),
+            callback=data["callback_name"],
             kwargs=json.loads(data["kwargs"]),
             schedule_type=data.get("schedule_type"),
             interval=interval,

@@ -4,14 +4,12 @@ from collections.abc import Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import AsyncGenerator, TypeVar
+from typing import AsyncGenerator
 
 import aiomysql
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True, kw_only=True)

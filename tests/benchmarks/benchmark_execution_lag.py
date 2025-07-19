@@ -10,10 +10,10 @@ from observers.execution_lag_observer import ExecutionLagObserver
 
 async def benchmark_aioscheduler_mysql_execution_lag(num_tasks: int = 1000):
     from taskshed.models.task_models import Task
-    from tests.benchmarks.utils import build_mysql_aioscheduler
+    from tests.benchmarks.utils import build_mysql_taskshed
 
     observer = ExecutionLagObserver(num_tasks=num_tasks)
-    scheduler = await build_mysql_aioscheduler({"callback": observer.callback})
+    scheduler = await build_mysql_taskshed({"callback": observer.callback})
 
     initial_schedule = datetime.now(tz=timezone.utc) + timedelta(seconds=10)
 
@@ -49,10 +49,10 @@ async def benchmark_aioscheduler_mysql_execution_lag(num_tasks: int = 1000):
 
 async def benchmark_aioscheduler_redis_execution_lag(num_tasks: int = 1000):
     from taskshed.models.task_models import Task
-    from tests.benchmarks.utils import build_redis_aioscheduler
+    from tests.benchmarks.utils import build_redis_taskshed
 
     observer = ExecutionLagObserver(num_tasks=num_tasks)
-    scheduler = await build_redis_aioscheduler({"callback": observer.callback})
+    scheduler = await build_redis_taskshed({"callback": observer.callback})
 
     initial_schedule = datetime.now(tz=timezone.utc) + timedelta(seconds=10)
 

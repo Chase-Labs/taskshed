@@ -1,13 +1,10 @@
 import asyncio
 from collections.abc import Iterable
 from datetime import datetime
-from typing import TypeVar
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 from taskshed.utils.errors import TaskNotFoundError
-
-T = TypeVar("T")
 
 
 class InMemoryDataStore(DataStore):

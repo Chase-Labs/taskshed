@@ -14,10 +14,10 @@ random.seed(42)  # For reproducibility
 
 async def benchmark_aioscheduler_mysql_schedule_batch(num_tasks: int, runs: int):
     from taskshed.models.task_models import Task
-    from tests.benchmarks.utils import build_mysql_aioscheduler
+    from tests.benchmarks.utils import build_mysql_taskshed
 
     observer = ScheduleObserver(num_tasks)
-    scheduler = await build_mysql_aioscheduler({"callback": observer.callback})
+    scheduler = await build_mysql_taskshed({"callback": observer.callback})
 
     schedule_datetime = datetime.now(timezone.utc) + timedelta(hours=1)
     tasks = [
@@ -46,10 +46,10 @@ async def benchmark_aioscheduler_mysql_schedule_batch(num_tasks: int, runs: int)
 
 async def benchmark_aioscheduler_redis_schedule_batch(num_tasks: int, runs: int):
     from taskshed.models.task_models import Task
-    from tests.benchmarks.utils import build_redis_aioscheduler
+    from tests.benchmarks.utils import build_redis_taskshed
 
     observer = ScheduleObserver(num_tasks)
-    scheduler = await build_redis_aioscheduler({"callback": observer.callback})
+    scheduler = await build_redis_taskshed({"callback": observer.callback})
 
     schedule_datetime = datetime.now(timezone.utc) + timedelta(hours=1)
     tasks = [

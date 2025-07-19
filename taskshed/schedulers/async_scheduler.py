@@ -14,9 +14,11 @@ class AsyncScheduler:
     rescheduling itself based on the next task's schedule_type time.
     """
 
-    def __init__(self, data_store: DataStore):
+    def __init__(
+        self, data_store: DataStore, *, worker: EventDrivenWorker | None = None
+    ):
         self._data_store = data_store
-        self._worker = EventDrivenWorker(data_store)
+        self._worker = worker
 
     # ------------------------------------------------------------------------------ public methods
 
@@ -40,7 +42,7 @@ class AsyncScheduler:
             replace_existing (`bool`): If True, replaces existing tasks with the same IDs.
         """
         await self._data_store.add_tasks(tasks, replace_existing=replace_existing)
-        await self._worker.update_wakeup()
+        await self._notify_worker()
 
     async def fetch_tasks(
         self,
@@ -86,7 +88,7 @@ class AsyncScheduler:
         elif group_id:
             await self._data_store.update_group_paused_status(group_id, paused=True)
 
-        await self._worker.update_wakeup()
+        await self._notify_worker()
 
     async def remove_tasks(
         self,
@@ -109,7 +111,7 @@ class AsyncScheduler:
         elif group_id:
             await self._data_store.remove_group_tasks(group_id=group_id)
 
-        await self._worker.update_wakeup()
+        await self._notify_worker()
 
     async def resume_tasks(
         self,
@@ -132,11 +134,11 @@ class AsyncScheduler:
         elif group_id:
             await self._data_store.update_group_paused_status(group_id, paused=False)
 
-        await self._worker.update_wakeup()
+        await self._notify_worker()
 
     async def update_execution_times(self, *, tasks: Iterable[TaskExecutionTime]):
         await self._data_store.update_execution_times(tasks)
-        await self._worker.update_wakeup()
+        await self._notify_worker()
 
     async def shutdown(self):
         await self._worker.shutdown()
@@ -145,3 +147,9 @@ class AsyncScheduler:
     async def start(self):
         await self._data_store.start()
         await self._worker.start()
+
+    # ------------------------------------------------------------------------------ private methods
+
+    async def _notify_worker(self):
+        if self._worker and isinstance(self._worker, EventDrivenWorker):
+            await self._worker.update_wakeup()

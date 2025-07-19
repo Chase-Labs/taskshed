@@ -24,10 +24,10 @@ def _build_observer(num_tasks: int) -> HighConcurrencyObserver:
 
 async def benchmark_aioscheduler_mysql_high_concurrency(num_tasks: int):
     from taskshed.models.task_models import Task
-    from tests.benchmarks.utils import build_mysql_aioscheduler
+    from tests.benchmarks.utils import build_mysql_taskshed
 
     observer = _build_observer(num_tasks)
-    scheduler = await build_mysql_aioscheduler({"callback": observer.callback})
+    scheduler = await build_mysql_taskshed({"callback": observer.callback})
 
     schedule_start = perf_counter()
     tasks = [
@@ -48,10 +48,10 @@ async def benchmark_aioscheduler_mysql_high_concurrency(num_tasks: int):
 
 async def benchmark_aioscheduler_redis_high_concurrency(num_tasks: int):
     from taskshed.models.task_models import Task
-    from tests.benchmarks.utils import build_redis_aioscheduler
+    from tests.benchmarks.utils import build_redis_taskshed
 
     observer = _build_observer(num_tasks)
-    scheduler = await build_redis_aioscheduler({"callback": observer.callback})
+    scheduler = await build_redis_taskshed({"callback": observer.callback})
 
     schedule_start = perf_counter()
     tasks = [

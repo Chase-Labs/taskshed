@@ -2,9 +2,13 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from functools import partial
+from typing import Awaitable, Callable, TypeVar
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task
+from taskshed.utils.errors import IncorrectCallbackNameError
+
+T = TypeVar("T")
 
 
 class EventDrivenWorker:
@@ -12,7 +16,12 @@ class EventDrivenWorker:
     Worker that schedules tasks to run in the asyncio event loop.
     """
 
-    def __init__(self, data_store: DataStore):
+    def __init__(
+        self,
+        callback_map: dict[str, Callable[..., Awaitable[T]]],
+        data_store: DataStore,
+    ):
+        self._callback_map = callback_map
         self._data_store = data_store
 
         self._current_tasks: set[asyncio.Task] = set()
@@ -56,15 +65,21 @@ class EventDrivenWorker:
         if not self._event_loop:
             raise RuntimeError("Event loop is not running. Call start() first.")
 
-        # task = self._event_loop.create_task(self._run_coroutine_task(task))
-        task = self._event_loop.create_task(task.callback(**task.kwargs))
+        try:
+            callback = self._callback_map[task.callback]
+        except KeyError:
+            raise IncorrectCallbackNameError(
+                f"Callback '{task.callback}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
+            )
+
+        _task = self._event_loop.create_task(callback(**task.kwargs))
 
         # Add future to set of tasks currently running.
-        self._current_tasks.add(task)
+        self._current_tasks.add(_task)
 
         # Add a callback to be run when the future becomes done.
         # Remove task from pending set when it completes.
-        task.add_done_callback(lambda t: self._current_tasks.discard(t))
+        _task.add_done_callback(lambda t: self._current_tasks.discard(t))
 
     async def update_wakeup(self, run_at: datetime | None = None) -> None | float:
         """
@@ -105,19 +120,6 @@ class EventDrivenWorker:
             )
 
     # ------------------------------------------------------------------------------ private methods
-
-    # async def _run_coroutine_task(self, task: Task):
-    #     """
-    #     Execute the coroutine task's callback with provided keyword arguments.
-
-    #     Args:
-    #         task (Task): The task to execute.
-    #     """
-    #     try:
-    #         await task.callback(**task.kwargs)
-    #     except Exception as e:
-    #         # Possibly handle this error depending on context.
-    #         raise e
 
     async def _wakeup(self):
         """
