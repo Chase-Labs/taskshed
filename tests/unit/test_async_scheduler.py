@@ -41,10 +41,10 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
     A parametrized fixture that yields a scheduler configured for different data stores.
     """
     if request.param == "in-memory":
-        data_store = InMemoryDataStore()
+        datastore = InMemoryDataStore()
 
     elif request.param == "mysql":
-        data_store = MySQLDataStore(
+        datastore = MySQLDataStore(
             config=MySQLConfig(
                 host=os.environ.get("MYSQL_HOST"),
                 user=os.environ.get("MYSQL_USER"),
@@ -54,7 +54,7 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
         )
 
     elif request.param == "redis":
-        data_store = RedisDataStore(
+        datastore = RedisDataStore(
             config=RedisConfig(
                 host="localhost",
                 port=6379,
@@ -63,11 +63,11 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
             ),
         )
 
-    await data_store.start()
-    await data_store.remove_all_tasks()
-    worker = EventDrivenWorker(callback_map=callback_map, data_store=data_store)
+    await datastore.start()
+    await datastore.remove_all_tasks()
+    worker = EventDrivenWorker(callback_map=callback_map, datastore=datastore)
     await worker.start()
-    scheduler_instance = AsyncScheduler(data_store=data_store, worker=worker)
+    scheduler_instance = AsyncScheduler(datastore=datastore, worker=worker)
 
     try:
         yield scheduler_instance
@@ -86,7 +86,7 @@ async def test_add_task(scheduler: AsyncScheduler):
     task_id = uuid4().hex
     scheduled_task = Task(
         run_at=start_time,
-        callback="mock_callback",
+        callback_name="mock_callback",
         schedule_type="date",
         task_id=task_id,
     )
@@ -107,7 +107,7 @@ async def test_add_date_task_and_run(scheduler: AsyncScheduler):
     task_id = uuid4().hex
     scheduled_task = Task(
         run_at=start_time,
-        callback="mock_callback",
+        callback_name="mock_callback",
         schedule_type="date",
         task_id=task_id,
         kwargs={"some_kwarg": 123},
@@ -138,7 +138,7 @@ async def test_add_interval_task_and_run(scheduler: AsyncScheduler):
     task_id = uuid4().hex
     scheduled_task = Task(
         run_at=start_time,
-        callback="mock_callback",
+        callback_name="mock_callback",
         schedule_type="interval",
         interval=timedelta(seconds=delay),
         task_id=task_id,
@@ -162,14 +162,14 @@ async def test_add_many_tasks(scheduler: AsyncScheduler):
         scheduled_tasks.append(
             Task(
                 run_at=start_time + timedelta(seconds=i),
-                callback="mock_callback",
+                callback_name="mock_callback",
                 schedule_type="date",
             )
         )
 
     await scheduler.add_tasks(scheduled_tasks)
 
-    fetched_tasks = await scheduler._data_store.fetch_due_tasks(
+    fetched_tasks = await scheduler._datastore.fetch_due_tasks(
         start_time + timedelta(seconds=num_tasks)
     )
     for task in fetched_tasks:
@@ -190,7 +190,7 @@ async def test_pause_and_resume_tasks(scheduler: AsyncScheduler):
         scheduled_tasks.append(
             Task(
                 run_at=start_time + timedelta(seconds=i),
-                callback="mock_callback",
+                callback_name="mock_callback",
                 schedule_type="date",
                 group_id=group_id,
             )
@@ -207,7 +207,7 @@ async def test_pause_and_resume_tasks(scheduler: AsyncScheduler):
     assert scheduler._worker._next_wakeup is None
 
     # Check that there are no due tasks
-    due_tasks = await scheduler._data_store.fetch_due_tasks(
+    due_tasks = await scheduler._datastore.fetch_due_tasks(
         start_time + timedelta(minutes=2)
     )
     assert len(due_tasks) == 0
@@ -229,7 +229,7 @@ async def test_update_task_execution_time(scheduler: AsyncScheduler):
         scheduled_tasks.append(
             Task(
                 run_at=start_time + timedelta(seconds=i),
-                callback="mock_callback",
+                callback_name="mock_callback",
                 schedule_type="date",
                 group_id=group_id,
             )
@@ -259,7 +259,7 @@ async def test_add_tasks_in_different_timezones(scheduler: AsyncScheduler):
     # Add a task without a specified timezone
     naive_task = Task(
         run_at=naive_start,
-        callback="mock_callback",
+        callback_name="mock_callback",
         schedule_type="date",
     )
 
@@ -269,7 +269,7 @@ async def test_add_tasks_in_different_timezones(scheduler: AsyncScheduler):
         aware_tasks.append(
             Task(
                 run_at=aware_start + timedelta(seconds=interval * i),
-                callback="mock_callback",
+                callback_name="mock_callback",
                 schedule_type="date",
                 task_id=iana_timezone,
             )
@@ -295,7 +295,7 @@ async def test_remove_tasks(scheduler: AsyncScheduler):
 
     # Add isolated tasks - tasks without a group
     isolated_tasks = [
-        Task(run_at=start_time, callback="mock_callback", schedule_type="date")
+        Task(run_at=start_time, callback_name="mock_callback", schedule_type="date")
         for _ in range(num_isolated_tasks)
     ]
     await scheduler.add_tasks(isolated_tasks)
@@ -306,7 +306,7 @@ async def test_remove_tasks(scheduler: AsyncScheduler):
     group_tasks = [
         Task(
             run_at=group_run_time,
-            callback="mock_callback",
+            callback_name="mock_callback",
             schedule_type="date",
             group_id=group_id,
         )
@@ -343,7 +343,7 @@ async def test_fetch_tasks_by_group_id(scheduler: AsyncScheduler):
     group_tasks = [
         Task(
             run_at=start_time + timedelta(seconds=i),
-            callback="mock_callback",
+            callback_name="mock_callback",
             schedule_type="date",
             group_id=group_id,
         )
@@ -352,7 +352,7 @@ async def test_fetch_tasks_by_group_id(scheduler: AsyncScheduler):
 
     other_task = Task(
         run_at=start_time,
-        callback="mock_callback",
+        callback_name="mock_callback",
         schedule_type="date",
     )
 
@@ -370,7 +370,7 @@ async def test_add_task_replace_existing_behaviour(scheduler: AsyncScheduler):
 
     first_task = Task(
         run_at=start_time,
-        callback="mock_callback",
+        callback_name="mock_callback",
         schedule_type="date",
         task_id=task_id,
     )
@@ -379,7 +379,7 @@ async def test_add_task_replace_existing_behaviour(scheduler: AsyncScheduler):
 
     later_task = Task(
         run_at=start_time + timedelta(seconds=10),
-        callback="second_callback",
+        callback_name="second_callback",
         schedule_type="date",
         task_id=task_id,
     )
@@ -388,16 +388,16 @@ async def test_add_task_replace_existing_behaviour(scheduler: AsyncScheduler):
     await scheduler.add_task(later_task)
     stored_tasks = await scheduler.fetch_tasks(task_ids=[task_id])
     stored_task = stored_tasks[0]
-    assert stored_task.callback == "second_callback"
+    assert stored_task.callback_name == "second_callback"
 
     # Do not replace existing task
     even_later_task = Task(
         run_at=start_time + timedelta(seconds=20),
-        callback="third_callback",
+        callback_name="third_callback",
         schedule_type="date",
         task_id=task_id,
     )
     await scheduler.add_task(even_later_task, replace_existing=False)
     stored_task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
-    assert stored_task.callback == "second_callback"
+    assert stored_task.callback_name == "second_callback"
     assert stored_task.run_at == start_time + timedelta(seconds=10)

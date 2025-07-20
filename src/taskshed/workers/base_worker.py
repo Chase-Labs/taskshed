@@ -12,16 +12,16 @@ class BaseWorker(ABC):
     def __init__(
         self,
         callback_map: dict[str, Callable[..., Awaitable[T]]],
-        data_store: DataStore,
+        datastore: DataStore,
     ):
         """
         Args:
             callback_map: A dictionary mapping task callback names to their
                 corresponding awaitable functions.
-            data_store: An instance of a DataStore used to fetch and update tasks.
+            datastore: An instance of a DataStore used to fetch and update tasks.
         """
         self._callback_map = callback_map
-        self._data_store = data_store
+        self._datastore = datastore
 
     @abstractmethod
     async def _process_due_tasks(self):

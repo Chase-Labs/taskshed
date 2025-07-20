@@ -17,11 +17,15 @@ class InMemoryDataStore(DataStore):
         self._lock: asyncio.Lock | None = None
 
     async def start(self) -> None:
+        if self._lock is not None:
+            return
+
         self._db.clear()
         self._lock = asyncio.Lock()
 
     async def shutdown(self) -> None:
         self._db.clear()
+        self._lock = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True

@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
@@ -15,9 +16,9 @@ class AsyncScheduler:
     """
 
     def __init__(
-        self, data_store: DataStore, *, worker: EventDrivenWorker | None = None
+        self, datastore: DataStore, *, worker: EventDrivenWorker | None = None
     ):
-        self._data_store = data_store
+        self._datastore = datastore
         self._worker = worker
 
     # ------------------------------------------------------------------------------ public methods
@@ -30,8 +31,8 @@ class AsyncScheduler:
             task (`Task`): The task to schedule.
             replace_existing (`bool`): If True, replaces an existing task with the same ID.
         """
-        await self._data_store.add_tasks((task,), replace_existing=replace_existing)
-        await self._worker.update_schedule(task.run_at)
+        await self._datastore.add_tasks((task,), replace_existing=replace_existing)
+        await self._notify_worker(task.run_at)
 
     async def add_tasks(self, tasks: Iterable[Task], *, replace_existing: bool = True):
         """
@@ -41,7 +42,7 @@ class AsyncScheduler:
             tasks (`Iterable[Task]`): An iterable of tasks to schedule.
             replace_existing (`bool`): If True, replaces existing tasks with the same IDs.
         """
-        await self._data_store.add_tasks(tasks, replace_existing=replace_existing)
+        await self._datastore.add_tasks(tasks, replace_existing=replace_existing)
         await self._notify_worker()
 
     async def fetch_tasks(
@@ -63,9 +64,9 @@ class AsyncScheduler:
         if not task_ids and not group_id:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
         if task_ids:
-            tasks = await self._data_store.fetch_tasks(task_ids)
+            tasks = await self._datastore.fetch_tasks(task_ids)
             return tasks
-        return await self._data_store.fetch_group_tasks(group_id)
+        return await self._datastore.fetch_group_tasks(group_id)
 
     async def pause_tasks(
         self,
@@ -84,9 +85,9 @@ class AsyncScheduler:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
 
         if task_ids:
-            await self._data_store.update_tasks_paused_status(task_ids, paused=True)
+            await self._datastore.update_tasks_paused_status(task_ids, paused=True)
         elif group_id:
-            await self._data_store.update_group_paused_status(group_id, paused=True)
+            await self._datastore.update_group_paused_status(group_id, paused=True)
 
         await self._notify_worker()
 
@@ -107,9 +108,9 @@ class AsyncScheduler:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
 
         if task_ids:
-            await self._data_store.remove_tasks(task_ids=task_ids)
+            await self._datastore.remove_tasks(task_ids=task_ids)
         elif group_id:
-            await self._data_store.remove_group_tasks(group_id=group_id)
+            await self._datastore.remove_group_tasks(group_id=group_id)
 
         await self._notify_worker()
 
@@ -130,26 +131,24 @@ class AsyncScheduler:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
 
         if task_ids:
-            await self._data_store.update_tasks_paused_status(task_ids, paused=False)
+            await self._datastore.update_tasks_paused_status(task_ids, paused=False)
         elif group_id:
-            await self._data_store.update_group_paused_status(group_id, paused=False)
+            await self._datastore.update_group_paused_status(group_id, paused=False)
 
         await self._notify_worker()
 
     async def update_execution_times(self, *, tasks: Iterable[TaskExecutionTime]):
-        await self._data_store.update_execution_times(tasks)
+        await self._datastore.update_execution_times(tasks)
         await self._notify_worker()
 
     async def shutdown(self):
-        await self._worker.shutdown()
-        await self._data_store.shutdown()
+        await self._datastore.shutdown()
 
     async def start(self):
-        await self._data_store.start()
-        await self._worker.start()
+        await self._datastore.start()
 
     # ------------------------------------------------------------------------------ private methods
 
-    async def _notify_worker(self):
-        if self._worker and isinstance(self._worker, EventDrivenWorker):
-            await self._worker.update_schedule()
+    async def _notify_worker(self, run_at: datetime | None = None):
+        if isinstance(self._worker, EventDrivenWorker):
+            await self._worker.update_schedule(run_at)

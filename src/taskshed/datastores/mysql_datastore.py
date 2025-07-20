@@ -14,10 +14,10 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 
 @dataclass(frozen=True, kw_only=True)
 class MySQLConfig:
-    host: str
-    user: str
-    password: str
+    host: str = "localhost"
     db: str
+    user: str = "root"
+    password: str | None = None
     port: int = 3306
 
 
@@ -163,7 +163,7 @@ class MySQLDataStore(DataStore):
             task_id=row["task_id"],
             run_at=self._convert_timestamp(row["run_at"]),
             paused=bool(row["paused"]),
-            callback=row["callback_name"],
+            callback_name=row["callback_name"],
             kwargs=json.loads(row["kwargs"]),
             schedule_type=row["schedule_type"],
             interval=interval,
@@ -179,26 +179,33 @@ class MySQLDataStore(DataStore):
     # -------------------------------------------------------------------------------- public methods
 
     async def start(self):
+        if self._pool is not None:
+            return
+
         self._lock = asyncio.Lock()
         async with self._lock:
-            if self._pool is None:
-                self._pool = await aiomysql.create_pool(
-                    **{
-                        **self._config.__dict__,
-                        "charset": "utf8mb4",
-                        "use_unicode": True,
-                        "autocommit": True,
-                        "cursorclass": aiomysql.DictCursor,
-                    }
-                )
+            self._pool = await aiomysql.create_pool(
+                **{
+                    **self._config.__dict__,
+                    "charset": "utf8mb4",
+                    "use_unicode": True,
+                    "autocommit": True,
+                    "cursorclass": aiomysql.DictCursor,
+                }
+            )
 
         # Create the table if it doesn't already exist
         async with self._get_cursor() as cursor:
             await cursor.execute(self._CREATE_TABLE_QUERY)
 
     async def shutdown(self):
+        if self._pool is None:
+            return
+
         self._pool.close()
         await self._pool.wait_closed()
+        self._pool = None
+        self._lock = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True
@@ -218,7 +225,7 @@ class MySQLDataStore(DataStore):
                             task.task_id,
                             self._convert_datetime(task.run_at),
                             task.paused,
-                            task.callback,
+                            task.callback_name,
                             json.dumps(task.kwargs),
                             task.schedule_type,
                             task.interval_seconds(),

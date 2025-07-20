@@ -24,7 +24,7 @@ class TaskExecutionTime(TaskId):
 @dataclass(kw_only=True)
 class Task(TaskExecutionTime):
     schedule_type: Literal["date", "interval"]
-    callback: str
+    callback_name: str
     kwargs: dict[str, T] = field(default_factory=dict)
     interval: timedelta | None = None
     group_id: str | None = None

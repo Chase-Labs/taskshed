@@ -1,5 +1,4 @@
 import json
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import isinf
@@ -10,16 +9,13 @@ from redis.asyncio import Redis
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 
-logger = logging.getLogger("RedisDataStore")
-logging.basicConfig(level=logging.INFO)
-
 
 @dataclass(frozen=True, kw_only=True)
 class RedisConfig:
-    host: str
-    port: int
-    username: str
-    password: str
+    host: str = "localhost"
+    port: int = 6379
+    username: str | None = None
+    password: str | None = None
 
 
 class RedisDataStore(DataStore):
@@ -51,8 +47,9 @@ class RedisDataStore(DataStore):
 
     # -------------------------------------------------------------------------------- private methods
 
-    def __init__(self, config: RedisConfig):
-        self._config = config
+    def __init__(self, config: RedisConfig | None = None):
+        self._config = config or RedisConfig()
+        self._client: Redis | None = None
         self._queue_index = f"{self.KEY_PREFIX}:task_queue"
 
     def _get_group_index(self, group_id: str) -> str:
@@ -66,7 +63,7 @@ class RedisDataStore(DataStore):
             "task_id": task.task_id,
             "run_at": task.run_at.timestamp(),
             "paused": int(task.paused),
-            "callback_name": task.callback,
+            "callback_name": task.callback_name,
             "kwargs": json.dumps(task.kwargs),
             "schedule_type": task.schedule_type,
             "interval": task.interval_seconds() if task.interval else "",
@@ -83,7 +80,7 @@ class RedisDataStore(DataStore):
             task_id=data["task_id"],
             run_at=datetime.fromtimestamp(float(data["run_at"])),
             paused=bool(int(data["paused"])),
-            callback=data["callback_name"],
+            callback_name=data["callback_name"],
             kwargs=json.loads(data["kwargs"]),
             schedule_type=data.get("schedule_type"),
             interval=interval,
@@ -93,6 +90,9 @@ class RedisDataStore(DataStore):
     # -------------------------------------------------------------------------------- public methods
 
     async def start(self) -> None:
+        if self._client is not None:
+            return
+
         self._client = Redis(
             host=self._config.host,
             port=self._config.port,
@@ -103,8 +103,11 @@ class RedisDataStore(DataStore):
         self._hsetallnx = self._client.register_script(self.LUA_HSETNX_SCRIPT)
 
     async def shutdown(self) -> None:
-        if hasattr(self, "_client"):
-            await self._client.close()
+        if self._client is None:
+            return
+
+        await self._client.close()
+        self._client = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True
