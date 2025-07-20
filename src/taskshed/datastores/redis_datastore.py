@@ -1,5 +1,4 @@
 import json
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import isinf
@@ -10,16 +9,13 @@ from redis.asyncio import Redis
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 
-logger = logging.getLogger("RedisDataStore")
-logging.basicConfig(level=logging.INFO)
-
 
 @dataclass(frozen=True, kw_only=True)
 class RedisConfig:
-    host: str
-    port: int
-    username: str
-    password: str
+    host: str = "localhost"
+    port: int = 6379
+    username: str | None = None
+    password: str | None = None
 
 
 class RedisDataStore(DataStore):
@@ -51,8 +47,8 @@ class RedisDataStore(DataStore):
 
     # -------------------------------------------------------------------------------- private methods
 
-    def __init__(self, config: RedisConfig):
-        self._config = config
+    def __init__(self, config: RedisConfig | None = None):
+        self._config = config or RedisConfig()
         self._client: Redis | None = None
         self._queue_index = f"{self.KEY_PREFIX}:task_queue"
 

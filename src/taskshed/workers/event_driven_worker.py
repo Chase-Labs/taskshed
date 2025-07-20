@@ -112,12 +112,10 @@ class EventDrivenWorker(BaseWorker):
 
     async def shutdown(self):
         self._cancel_timer()
-
         if self._current_tasks:
             await asyncio.wait(
                 self._current_tasks, return_when=asyncio.ALL_COMPLETED, timeout=30
             )
-
         await self._datastore.shutdown()
 
     async def update_schedule(self, run_at: datetime | None = None):

@@ -14,10 +14,10 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 
 @dataclass(frozen=True, kw_only=True)
 class MySQLConfig:
-    host: str
-    user: str
-    password: str
+    host: str = "localhost"
     db: str
+    user: str = "root"
+    password: str | None = None
     port: int = 3306
 
 
