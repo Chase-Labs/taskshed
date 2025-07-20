@@ -110,7 +110,8 @@ class PollingWorker(BaseWorker):
             )
 
     async def update_schedule(self):
-        self._timer_handle.cancel()
+        if self._timer_handle:
+            self._timer_handle.cancel()
         # Event loop provides mechanisms to schedule callback functions to
         # be called at some point in the future. Event loop uses monotonic clocks to track time.
         # An instance of asyncio.TimerHandle is returned which can be used to cancel the callback.
