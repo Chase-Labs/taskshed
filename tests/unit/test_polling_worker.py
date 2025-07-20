@@ -22,7 +22,7 @@ async def worker() -> AsyncGenerator[PollingWorker, None]:
     await store.start()
     worker = PollingWorker(
         callback_map={"mock_callback": mock_callback},
-        data_store=store,
+        datastore=store,
         polling_interval=timedelta(seconds=POLLING_DELAY),
     )
     await worker.start()
@@ -38,7 +38,7 @@ async def worker() -> AsyncGenerator[PollingWorker, None]:
 @pytest.mark.asyncio
 async def test_run_date_task(worker: PollingWorker):
     task = Task(
-        callback="mock_callback",
+        callback_name="mock_callback",
         kwargs={"some_arg": 123},
         schedule_type="date",
         run_at=datetime.now(timezone.utc),
@@ -66,7 +66,7 @@ async def test_polling_schedule(worker: PollingWorker):
     # The fetch_due_tasks method is called periodically by the worker
     # in the _process_due_tasks method. It is a good way to track the number of times
     # the _process_due_tasks method is called.
-    worker._data_store.fetch_due_tasks = mock_fetch_due_tasks
+    worker._datastore.fetch_due_tasks = mock_fetch_due_tasks
 
     await asyncio.sleep(POLLING_DELAY * num_iterations + (POLLING_DELAY / 2))
     assert mock_fetch_due_tasks.call_count == num_iterations

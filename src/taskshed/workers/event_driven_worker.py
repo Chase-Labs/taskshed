@@ -19,9 +19,9 @@ class EventDrivenWorker(BaseWorker):
     def __init__(
         self,
         callback_map: dict[str, Callable[..., Awaitable[T]]],
-        data_store: DataStore,
+        datastore: DataStore,
     ):
-        super().__init__(callback_map, data_store)
+        super().__init__(callback_map, datastore)
 
         self._current_tasks: set[asyncio.Task] = set()
         self._event_loop: asyncio.AbstractEventLoop | None = None
@@ -41,7 +41,7 @@ class EventDrivenWorker(BaseWorker):
         async with self._lock:
             while True:
                 # Retrieve tasks that are scheduled to run now or earlier
-                tasks = await self._data_store.fetch_due_tasks(
+                tasks = await self._datastore.fetch_due_tasks(
                     datetime.now(tz=timezone.utc)
                 )
 
@@ -64,11 +64,11 @@ class EventDrivenWorker(BaseWorker):
 
                 if interval_tasks:
                     # Persist updated schedule for recurring interval tasks
-                    await self._data_store.update_execution_times(interval_tasks)
+                    await self._datastore.update_execution_times(interval_tasks)
 
                 if date_tasks:
                     # Remove completed one-time tasks from the store
-                    await self._data_store.remove_tasks(date_tasks)
+                    await self._datastore.remove_tasks(date_tasks)
 
         self._cancel_timer()
         await self.update_schedule()
@@ -79,10 +79,10 @@ class EventDrivenWorker(BaseWorker):
             raise RuntimeError("Event loop is not running. Call start() first.")
 
         try:
-            callback = self._callback_map[task.callback]
+            callback = self._callback_map[task.callback_name]
         except KeyError:
             raise IncorrectCallbackNameError(
-                f"Callback '{task.callback}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
+                f"Callback '{task.callback_name}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
             )
 
         _task = self._event_loop.create_task(callback(**task.kwargs))
@@ -122,7 +122,7 @@ class EventDrivenWorker(BaseWorker):
             wakeup = run_at
 
         else:
-            wakeup = await self._data_store.fetch_next_wakeup()
+            wakeup = await self._datastore.fetch_next_wakeup()
             # When fetching the next wakeup from the store we always update the
             # current timer since the earliest task might have changed (e.g. when
             # tasks are removed).

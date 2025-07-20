@@ -23,7 +23,7 @@ def _load_env():
 
 async def build_mysql_taskshed(callback_map: dict) -> AsyncScheduler:
     _load_env()
-    data_store = MySQLDataStore(
+    datastore = MySQLDataStore(
         config=MySQLConfig(
             host=os.environ.get("MYSQL_HOST"),
             user=os.environ.get("MYSQL_USER"),
@@ -32,17 +32,17 @@ async def build_mysql_taskshed(callback_map: dict) -> AsyncScheduler:
         ),
     )
 
-    worker = EventDrivenWorker(callback_map=callback_map, data_store=data_store)
-    scheduler = AsyncScheduler(data_store=data_store, worker=worker)
+    worker = EventDrivenWorker(callback_map=callback_map, datastore=datastore)
+    scheduler = AsyncScheduler(datastore=datastore, worker=worker)
 
-    await scheduler._data_store.start()
-    await scheduler._data_store.remove_all_tasks()
+    await scheduler._datastore.start()
+    await scheduler._datastore.remove_all_tasks()
     await scheduler._worker.start()
     return scheduler
 
 
 async def build_redis_taskshed(callback_map: dict) -> AsyncScheduler:
-    data_store = RedisDataStore(
+    datastore = RedisDataStore(
         callback_map=callback_map,
         config=RedisConfig(
             host="localhost",
@@ -51,11 +51,11 @@ async def build_redis_taskshed(callback_map: dict) -> AsyncScheduler:
             password=None,
         ),
     )
-    worker = EventDrivenWorker(callback_map=callback_map, data_store=data_store)
-    scheduler = AsyncScheduler(data_store=data_store, worker=worker)
+    worker = EventDrivenWorker(callback_map=callback_map, datastore=datastore)
+    scheduler = AsyncScheduler(datastore=datastore, worker=worker)
 
-    await scheduler._data_store.start()
-    await scheduler._data_store.remove_all_tasks()
+    await scheduler._datastore.start()
+    await scheduler._datastore.remove_all_tasks()
     await scheduler._worker.start()
     return scheduler
 
