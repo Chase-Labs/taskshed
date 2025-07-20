@@ -89,6 +89,8 @@ class PollingWorker(BaseWorker):
     # ------------------------------------------------------------------------------ public methods
 
     async def start(self):
+        await self._datastore.start()
+
         if not self._event_loop:
             self._event_loop = asyncio.get_running_loop()
 
@@ -103,11 +105,11 @@ class PollingWorker(BaseWorker):
     async def shutdown(self):
         if self._timer_handle:
             self._timer_handle.cancel()
-
         if self._current_tasks:
             await asyncio.wait(
                 self._current_tasks, return_when=asyncio.ALL_COMPLETED, timeout=30
             )
+        await self._datastore.shutdown()
 
     async def update_schedule(self):
         if self._timer_handle:

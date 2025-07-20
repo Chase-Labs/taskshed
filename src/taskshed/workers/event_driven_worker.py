@@ -97,6 +97,8 @@ class EventDrivenWorker(BaseWorker):
     # ------------------------------------------------------------------------------ public methods
 
     async def start(self):
+        await self._datastore.start()
+
         if not self._event_loop:
             self._event_loop = asyncio.get_running_loop()
 
@@ -109,11 +111,14 @@ class EventDrivenWorker(BaseWorker):
         await self._process_due_tasks()
 
     async def shutdown(self):
+        self._cancel_timer()
+
         if self._current_tasks:
             await asyncio.wait(
                 self._current_tasks, return_when=asyncio.ALL_COMPLETED, timeout=30
             )
-        self._cancel_timer()
+
+        await self._datastore.shutdown()
 
     async def update_schedule(self, run_at: datetime | None = None):
         if run_at:
