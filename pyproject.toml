@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # -------------------------------------------------------------------------------- project metadata
 [project]
 name = "taskshed"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
   { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
 ]
@@ -39,7 +39,7 @@ mysql = [
     "aiomysql>=0.2.0",
 ]
 redis = [
-    "redis>=6.2.0",
+    "redis>=6.0.0",
 ]
 all = [
     "taskshed[mysql,redis]"
