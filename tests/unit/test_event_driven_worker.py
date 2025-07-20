@@ -37,7 +37,7 @@ async def test_run_date_task(worker: EventDrivenWorker):
         group_id=1,
     )
 
-    worker.run_task(task)
+    worker._run_task(task)
 
     # Ensure the task was added to the executor's pending tasks
     assert len(worker._current_tasks) == 1

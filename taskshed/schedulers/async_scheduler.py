@@ -31,7 +31,7 @@ class AsyncScheduler:
             replace_existing (`bool`): If True, replaces an existing task with the same ID.
         """
         await self._data_store.add_tasks((task,), replace_existing=replace_existing)
-        await self._worker.update_wakeup(task.run_at)
+        await self._worker.update_schedule(task.run_at)
 
     async def add_tasks(self, tasks: Iterable[Task], *, replace_existing: bool = True):
         """
@@ -152,4 +152,4 @@ class AsyncScheduler:
 
     async def _notify_worker(self):
         if self._worker and isinstance(self._worker, EventDrivenWorker):
-            await self._worker.update_wakeup()
+            await self._worker.update_schedule()

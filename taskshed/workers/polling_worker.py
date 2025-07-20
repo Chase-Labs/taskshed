@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import Awaitable, Callable, TypeVar
 
@@ -11,31 +11,26 @@ from taskshed.workers.base_worker import BaseWorker
 T = TypeVar("T")
 
 
-class EventDrivenWorker(BaseWorker):
+class PollingWorker(BaseWorker):
     """
-    Worker that schedules tasks to run in the asyncio event loop.
+    A worker that polls a data store and runs scheduled tasks.
     """
 
     def __init__(
         self,
         callback_map: dict[str, Callable[..., Awaitable[T]]],
         data_store: DataStore,
+        polling_interval: timedelta = timedelta(seconds=3),
     ):
         super().__init__(callback_map, data_store)
+        self._polling_interval = polling_interval
 
         self._current_tasks: set[asyncio.Task] = set()
         self._event_loop: asyncio.AbstractEventLoop | None = None
         self._lock: asyncio.Lock | None = None
-        self._next_wakeup: datetime | None = None
         self._timer_handle: asyncio.TimerHandle | None = None
 
     # ------------------------------------------------------------------------------ private methods
-
-    def _cancel_timer(self):
-        if self._timer_handle is not None:
-            self._timer_handle.cancel()
-            self._timer_handle = None
-            self._next_wakeup = None
 
     async def _process_due_tasks(self):
         async with self._lock:
@@ -44,19 +39,18 @@ class EventDrivenWorker(BaseWorker):
                 tasks = await self._data_store.fetch_due_tasks(
                     datetime.now(tz=timezone.utc)
                 )
-
                 if not tasks:
-                    # No further tasks to execute.
-                    break
+                    break  # No further tasks to execute.
 
                 interval_tasks = []
                 date_tasks = []
+
                 for task in tasks:
                     self._run_task(task)
 
                     if task.schedule_type == "interval":
                         # Reschedule interval task for its next run based on interval
-                        task.run_at = task.run_at + task.interval
+                        task.run_at += task.interval
                         interval_tasks.append(task)
 
                     elif task.schedule_type == "date":
@@ -65,12 +59,10 @@ class EventDrivenWorker(BaseWorker):
                 if interval_tasks:
                     # Persist updated schedule for recurring interval tasks
                     await self._data_store.update_execution_times(interval_tasks)
-
                 if date_tasks:
                     # Remove completed one-time tasks from the store
                     await self._data_store.remove_tasks(date_tasks)
 
-        self._cancel_timer()
         await self.update_schedule()
 
     def _run_task(self, task: Task):
@@ -109,39 +101,20 @@ class EventDrivenWorker(BaseWorker):
         await self._process_due_tasks()
 
     async def shutdown(self):
+        if self._timer_handle:
+            self._timer_handle.cancel()
+
         if self._current_tasks:
             await asyncio.wait(
                 self._current_tasks, return_when=asyncio.ALL_COMPLETED, timeout=30
             )
-        self._cancel_timer()
 
-    async def update_schedule(self, run_at: datetime | None = None):
-        if run_at:
-            if self._next_wakeup and self._next_wakeup < run_at:
-                return
-            wakeup = run_at
-
-        else:
-            wakeup = await self._data_store.fetch_next_wakeup()
-            # When fetching the next wakeup from the store we always update the
-            # current timer since the earliest task might have changed (e.g. when
-            # tasks are removed).
-            self._cancel_timer()
-            if not wakeup:
-                return
-
-        wakeup = wakeup.astimezone(timezone.utc)
-        if self._next_wakeup is None or wakeup < self._next_wakeup:
-            self._cancel_timer()
-            self._next_wakeup = wakeup
-
-            # Event loop provides mechanisms to schedule callback functions to
-            # be called at some point in the future. Event loop uses monotonic clocks to track time.
-            # An instance of asyncio.TimerHandle is returned which can be used to cancel the callback.
-            delay = max((wakeup - datetime.now(tz=timezone.utc)).total_seconds(), 0)
-            self._timer_handle = self._event_loop.call_later(
-                delay=delay,
-                callback=partial(
-                    self._event_loop.create_task, self._process_due_tasks()
-                ),
-            )
+    async def update_schedule(self):
+        self._timer_handle.cancel()
+        # Event loop provides mechanisms to schedule callback functions to
+        # be called at some point in the future. Event loop uses monotonic clocks to track time.
+        # An instance of asyncio.TimerHandle is returned which can be used to cancel the callback.
+        self._timer_handle = self._event_loop.call_later(
+            delay=self._polling_interval.total_seconds(),
+            callback=partial(self._event_loop.create_task, self._process_due_tasks()),
+        )
