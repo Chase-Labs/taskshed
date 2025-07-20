@@ -53,6 +53,7 @@ class RedisDataStore(DataStore):
 
     def __init__(self, config: RedisConfig):
         self._config = config
+        self._client: Redis | None = None
         self._queue_index = f"{self.KEY_PREFIX}:task_queue"
 
     def _get_group_index(self, group_id: str) -> str:
@@ -93,6 +94,9 @@ class RedisDataStore(DataStore):
     # -------------------------------------------------------------------------------- public methods
 
     async def start(self) -> None:
+        if self._client is not None:
+            return
+
         self._client = Redis(
             host=self._config.host,
             port=self._config.port,
@@ -103,8 +107,11 @@ class RedisDataStore(DataStore):
         self._hsetallnx = self._client.register_script(self.LUA_HSETNX_SCRIPT)
 
     async def shutdown(self) -> None:
-        if hasattr(self, "_client"):
-            await self._client.close()
+        if self._client is None:
+            return
+
+        await self._client.close()
+        self._client = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True

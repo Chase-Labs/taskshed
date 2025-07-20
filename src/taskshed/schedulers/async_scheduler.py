@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
@@ -31,7 +32,7 @@ class AsyncScheduler:
             replace_existing (`bool`): If True, replaces an existing task with the same ID.
         """
         await self._datastore.add_tasks((task,), replace_existing=replace_existing)
-        await self._worker.update_schedule(task.run_at)
+        await self._notify_worker(task.run_at)
 
     async def add_tasks(self, tasks: Iterable[Task], *, replace_existing: bool = True):
         """
@@ -141,15 +142,13 @@ class AsyncScheduler:
         await self._notify_worker()
 
     async def shutdown(self):
-        await self._worker.shutdown()
         await self._datastore.shutdown()
 
     async def start(self):
         await self._datastore.start()
-        await self._worker.start()
 
     # ------------------------------------------------------------------------------ private methods
 
-    async def _notify_worker(self):
-        if self._worker and isinstance(self._worker, EventDrivenWorker):
-            await self._worker.update_schedule()
+    async def _notify_worker(self, run_at: datetime | None = None):
+        if isinstance(self._worker, EventDrivenWorker):
+            await self._worker.update_schedule(run_at)

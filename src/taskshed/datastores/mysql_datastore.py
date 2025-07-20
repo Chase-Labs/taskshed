@@ -179,26 +179,33 @@ class MySQLDataStore(DataStore):
     # -------------------------------------------------------------------------------- public methods
 
     async def start(self):
+        if self._pool is not None:
+            return
+
         self._lock = asyncio.Lock()
         async with self._lock:
-            if self._pool is None:
-                self._pool = await aiomysql.create_pool(
-                    **{
-                        **self._config.__dict__,
-                        "charset": "utf8mb4",
-                        "use_unicode": True,
-                        "autocommit": True,
-                        "cursorclass": aiomysql.DictCursor,
-                    }
-                )
+            self._pool = await aiomysql.create_pool(
+                **{
+                    **self._config.__dict__,
+                    "charset": "utf8mb4",
+                    "use_unicode": True,
+                    "autocommit": True,
+                    "cursorclass": aiomysql.DictCursor,
+                }
+            )
 
         # Create the table if it doesn't already exist
         async with self._get_cursor() as cursor:
             await cursor.execute(self._CREATE_TABLE_QUERY)
 
     async def shutdown(self):
+        if self._pool is None:
+            return
+
         self._pool.close()
         await self._pool.wait_closed()
+        self._pool = None
+        self._lock = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True
