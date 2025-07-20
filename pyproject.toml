@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # -------------------------------------------------------------------------------- project metadata
 [project]
 name = "taskshed"
-version = "0.3.1"
+version = "0.3.2"
 authors = [
   { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
 ]
