@@ -23,18 +23,16 @@ class TaskExecutionTime(TaskId):
 
 @dataclass(kw_only=True)
 class Task(TaskExecutionTime):
-    schedule_type: Literal["date", "interval"]
-    callback_name: str
+    callback: str
+    run_type: Literal["once", "recurring"] = "once"
     kwargs: dict[str, T] = field(default_factory=dict)
     interval: timedelta | None = None
     group_id: str | None = None
     paused: bool = False
 
     def __post_init__(self):
-        if self.schedule_type == "interval" and self.interval is None:
-            raise ValueError(
-                "A 'schedule_interval' must be provided for interval tasks."
-            )
+        if self.run_type == "recurring" and self.interval is None:
+            raise ValueError("An 'interval' must be provided for recurring tasks.")
         self.run_at = self.run_at.astimezone(timezone.utc)
 
     def interval_seconds(self) -> float | None:

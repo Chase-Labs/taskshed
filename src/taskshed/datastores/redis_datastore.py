@@ -63,9 +63,9 @@ class RedisDataStore(DataStore):
             "task_id": task.task_id,
             "run_at": task.run_at.timestamp(),
             "paused": int(task.paused),
-            "callback_name": task.callback_name,
+            "callback": task.callback,
             "kwargs": json.dumps(task.kwargs),
-            "schedule_type": task.schedule_type,
+            "run_type": task.run_type,
             "interval": task.interval_seconds() if task.interval else "",
             "group_id": task.group_id if task.group_id is not None else "",
         }
@@ -80,9 +80,9 @@ class RedisDataStore(DataStore):
             task_id=data["task_id"],
             run_at=datetime.fromtimestamp(float(data["run_at"])),
             paused=bool(int(data["paused"])),
-            callback_name=data["callback_name"],
+            callback=data["callback"],
             kwargs=json.loads(data["kwargs"]),
-            schedule_type=data.get("schedule_type"),
+            run_type=data.get("run_type"),
             interval=interval,
             group_id=data["group_id"] if data.get("group_id") else None,
         )

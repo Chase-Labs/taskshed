@@ -7,9 +7,7 @@ from observers.overhead_observer import OverheadObserver
 # -------------------------------------------------------------------------------- aioscheduler + mysql
 
 
-async def benchmark_aioscheduler_mysql_overhead(
-    test_length_seconds: int, num_tasks: int
-):
+async def benchmark_taskshed_mysql_overhead(test_length_seconds: int, num_tasks: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_mysql_taskshed
 
@@ -22,9 +20,9 @@ async def benchmark_aioscheduler_mysql_overhead(
             Task(
                 task_id="Task 0",
                 run_at=datetime.now(timezone.utc) + timedelta(seconds=0.1),
-                callback_name="observer_callback",
+                callback="observer_callback",
                 kwargs={"delay": test_length_seconds, "scheduled_task_id": "Task 0"},
-                schedule_type="date",
+                run_type="once",
                 interval=None,
                 group_id=1,
             ),
@@ -39,9 +37,9 @@ async def benchmark_aioscheduler_mysql_overhead(
                 Task(
                     task_id=f"Task {i}",
                     run_at=datetime.now(timezone.utc) + timedelta(seconds=delay),
-                    callback_name="observer_callback",
+                    callback="observer_callback",
                     kwargs={"delay": func_wait, "scheduled_task_id": f"Task {i}"},
-                    schedule_type="date",
+                    run_type="once",
                     interval=None,
                     group_id=None,
                 ),
@@ -69,9 +67,9 @@ async def benchmark_aioscheduler_redis_overhead(
             Task(
                 task_id="Task 0",
                 run_at=datetime.now(timezone.utc) + timedelta(seconds=0.1),
-                callback_name="observer_callback",
+                callback="observer_callback",
                 kwargs={"delay": test_length_seconds, "scheduled_task_id": "Task 0"},
-                schedule_type="date",
+                run_type="once",
                 interval=None,
                 group_id=group,
             ),
@@ -86,9 +84,9 @@ async def benchmark_aioscheduler_redis_overhead(
                 Task(
                     task_id=f"Task {i}",
                     run_at=datetime.now(timezone.utc) + timedelta(seconds=delay),
-                    callback_name="observer_callback",
+                    callback="observer_callback",
                     kwargs={"delay": func_wait, "scheduled_task_id": f"Task {i}"},
-                    schedule_type="date",
+                    run_type="once",
                     group_id=group,
                 ),
             )

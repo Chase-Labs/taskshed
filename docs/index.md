@@ -53,7 +53,7 @@ async def main():
     await scheduler.start()
     await worker.start()
     await scheduler.add_task(
-        callback_name="foo",
+        callback="foo",
         run_at=datetime.now() + timedelta(seconds=3),
     )
 

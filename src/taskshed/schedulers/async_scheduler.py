@@ -16,7 +16,7 @@ class AsyncScheduler:
 
     The scheduler stores tasks via a task store and uses an executor to run them.
     It manages periodic or one-time tasks, waking up to execute due tasks and
-    rescheduling itself based on the next task's schedule_type time.
+    rescheduling itself based on the next task's run_type.
     """
 
     def __init__(
@@ -29,10 +29,10 @@ class AsyncScheduler:
 
     async def add_task(
         self,
-        callback_name: str,
+        callback: str,
         run_at: datetime | None = None,
         kwargs: dict[str, T] | None = None,
-        schedule_type: Literal["date", "interval"] = "date",
+        run_type: Literal["once", "recurring"] = "once",
         interval: timedelta | None = None,
         task_id: str | None = None,
         group_id: str | None = None,
@@ -48,10 +48,10 @@ class AsyncScheduler:
             replace_existing (`bool`): If True, replaces an existing task with the same ID.
         """
         task = Task(
-            callback_name=callback_name,
+            callback=callback,
             run_at=run_at or datetime.now(),
             kwargs=kwargs or dict(),
-            schedule_type=schedule_type,
+            run_type=run_type,
             interval=interval,
             task_id=task_id or uuid4().hex,
             group_id=group_id,

@@ -34,8 +34,8 @@ async def benchmark_aioscheduler_mysql_high_concurrency(num_tasks: int):
         Task(
             task_id=uuid4().hex,
             run_at=START_DT + timedelta(seconds=uniform(0, 1)),
-            callback_name="observer_callback",
-            schedule_type="date",
+            callback="observer_callback",
+            run_type="once",
         )
         for _ in range(num_tasks)
     ]
@@ -58,8 +58,8 @@ async def benchmark_aioscheduler_redis_high_concurrency(num_tasks: int):
         Task(
             task_id=uuid4().hex,
             run_at=START_DT + timedelta(seconds=uniform(0, 1)),
-            callback_name="observer_callback",
-            schedule_type="date",
+            callback="observer_callback",
+            run_type="once",
         )
         for _ in range(num_tasks)
     ]

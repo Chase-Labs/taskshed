@@ -23,8 +23,8 @@ async def benchmark_aioscheduler_mysql_schedule_batch(num_tasks: int, runs: int)
     tasks = [
         Task(
             run_at=schedule_datetime + timedelta(seconds=i),
-            callback_name="observer_callback",
-            schedule_type="date",
+            callback="observer_callback",
+            run_type="once",
         )
         for i in range(num_tasks)
     ]
@@ -55,8 +55,8 @@ async def benchmark_aioscheduler_redis_schedule_individual(num_tasks: int, runs:
     tasks = [
         Task(
             run_at=schedule_datetime + timedelta(seconds=i),
-            callback_name="observer_callback",
-            schedule_type="date",
+            callback="observer_callback",
+            run_type="once",
         )
         for i in range(num_tasks)
     ]

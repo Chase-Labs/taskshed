@@ -30,12 +30,12 @@ async def benchmark_aioscheduler_mysql_execution_lag(num_tasks: int = 1000):
             Task(
                 task_id=task_id,
                 run_at=run_at,
-                callback_name="observer_callback",
+                callback="observer_callback",
                 kwargs={
                     "scheduled_run_time": run_at,
                     "scheduled_task_id": task_id,
                 },
-                schedule_type="date",
+                run_type="once",
                 interval=None,
                 group_id=None,
             )
@@ -70,12 +70,12 @@ async def benchmark_aioscheduler_redis_execution_lag(num_tasks: int = 1000):
             Task(
                 task_id=task_id,
                 run_at=run_at,
-                callback_name="observer_callback",
+                callback="observer_callback",
                 kwargs={
                     "scheduled_run_time": run_at,
                     "scheduled_task_id": task_id,
                 },
-                schedule_type="date",
+                run_type="once",
             )
         )
 
@@ -104,7 +104,7 @@ async def benchmark_apscheduler_execution_lag(num_tasks: int = 1000):
         scheduler.add_task(
             id=task_id,
             func=observer.callback,
-            trigger="date",
+            trigger="once",
             run_date=run_at,
             kwargs={
                 "scheduled_run_time": run_at,

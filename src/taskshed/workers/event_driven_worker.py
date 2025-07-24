@@ -54,12 +54,12 @@ class EventDrivenWorker(BaseWorker):
                 for task in tasks:
                     self._run_task(task)
 
-                    if task.schedule_type == "interval":
-                        # Reschedule interval task for its next run based on interval
+                    if task.run_type == "recurring":
+                        # Reschedule recurring task for its next run based on interval
                         task.run_at = task.run_at + task.interval
                         interval_tasks.append(task)
 
-                    elif task.schedule_type == "date":
+                    elif task.run_type == "once":
                         date_tasks.append(task.task_id)
 
                 if interval_tasks:
@@ -79,10 +79,10 @@ class EventDrivenWorker(BaseWorker):
             raise RuntimeError("Event loop is not running. Call start() first.")
 
         try:
-            callback = self._callback_map[task.callback_name]
+            callback = self._callback_map[task.callback]
         except KeyError:
             raise IncorrectCallbackNameError(
-                f"Callback '{task.callback_name}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
+                f"Callback '{task.callback}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
             )
 
         _task = self._event_loop.create_task(callback(**task.kwargs))
