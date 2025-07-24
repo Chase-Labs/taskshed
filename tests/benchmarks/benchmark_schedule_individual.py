@@ -44,7 +44,7 @@ async def benchmark_aioscheduler_mysql_schedule_batch(num_tasks: int, runs: int)
 # -------------------------------------------------------------------------------- aioscheduler + redis
 
 
-async def benchmark_aioscheduler_redis_schedule_batch(num_tasks: int, runs: int):
+async def benchmark_aioscheduler_redis_schedule_individual(num_tasks: int, runs: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_redis_taskshed
 

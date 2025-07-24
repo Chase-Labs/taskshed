@@ -1,9 +1,13 @@
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Literal, TypeVar
+from uuid import uuid4
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 from taskshed.workers.event_driven_worker import EventDrivenWorker
+
+T = TypeVar("T")
 
 
 class AsyncScheduler:
@@ -23,7 +27,19 @@ class AsyncScheduler:
 
     # ------------------------------------------------------------------------------ public methods
 
-    async def add_task(self, task: Task, *, replace_existing: bool = True):
+    async def add_task(
+        self,
+        callback_name: str,
+        run_at: datetime | None = None,
+        kwargs: dict[str, T] | None = None,
+        schedule_type: Literal["date", "interval"] = "date",
+        interval: timedelta | None = None,
+        task_id: str | None = None,
+        group_id: str | None = None,
+        paused: bool = False,
+        *,
+        replace_existing: bool = True,
+    ):
         """
         Schedules a single task.
 
@@ -31,6 +47,16 @@ class AsyncScheduler:
             task (`Task`): The task to schedule.
             replace_existing (`bool`): If True, replaces an existing task with the same ID.
         """
+        task = Task(
+            callback_name=callback_name,
+            run_at=run_at or datetime.now(),
+            kwargs=kwargs or dict(),
+            schedule_type=schedule_type,
+            interval=interval,
+            task_id=task_id or uuid4().hex,
+            group_id=group_id,
+            paused=paused,
+        )
         await self._datastore.add_tasks((task,), replace_existing=replace_existing)
         await self._notify_worker(task.run_at)
 
