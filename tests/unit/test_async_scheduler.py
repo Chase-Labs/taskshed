@@ -84,17 +84,22 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
 async def test_add_task(scheduler: AsyncScheduler):
     start_time = datetime.now(timezone.utc) + timedelta(minutes=1)
     task_id = uuid4().hex
-    scheduled_task = Task(
+
+    await scheduler.add_task(
         run_at=start_time,
         callback="mock_callback",
         task_id=task_id,
     )
 
-    await scheduler.add_task(scheduled_task)
-
     # Check that the task was added to the taskstore
     fetched_task = await scheduler.fetch_tasks(task_ids=[task_id])
-    assert fetched_task == [scheduled_task]
+    assert fetched_task == [
+        Task(
+            run_at=start_time,
+            callback="mock_callback",
+            task_id=task_id,
+        )
+    ]
 
     # Check that the worker has updated its wakeup time to the task's scheduled time
     assert scheduler._worker._next_wakeup == start_time
@@ -104,18 +109,24 @@ async def test_add_task(scheduler: AsyncScheduler):
 async def test_add_date_task_and_run(scheduler: AsyncScheduler):
     start_time = datetime.now(timezone.utc)
     task_id = uuid4().hex
-    scheduled_task = Task(
+
+    await scheduler.add_task(
         run_at=start_time,
         callback="mock_callback",
         task_id=task_id,
         kwargs={"some_kwarg": 123},
     )
 
-    await scheduler.add_task(scheduled_task)
-
     # Check that the task was added to the taskstore
     fetched_task = await scheduler.fetch_tasks(task_ids=[task_id])
-    assert fetched_task == [scheduled_task]
+    assert fetched_task == [
+        Task(
+            run_at=start_time,
+            callback="mock_callback",
+            task_id=task_id,
+            kwargs={"some_kwarg": 123},
+        )
+    ]
     assert scheduler._worker._next_wakeup == start_time
 
     await asyncio.sleep(0.05)  # Allow time for the task to run
@@ -134,7 +145,8 @@ async def test_add_interval_task_and_run(scheduler: AsyncScheduler):
     delay = 0.1
 
     task_id = uuid4().hex
-    scheduled_task = Task(
+
+    await scheduler.add_task(
         run_at=start_time,
         callback="mock_callback",
         run_type="recurring",
@@ -142,8 +154,6 @@ async def test_add_interval_task_and_run(scheduler: AsyncScheduler):
         task_id=task_id,
         kwargs={"some_kwarg": 123},
     )
-
-    await scheduler.add_task(scheduled_task)
     await asyncio.sleep((delay * execution_count) + delay / 2)
     assert (
         mock_callback.call_count == execution_count + 1
@@ -251,12 +261,6 @@ async def test_add_tasks_in_different_timezones(scheduler: AsyncScheduler):
     naive_start = datetime.now() + timedelta(seconds=delay)
     iana_timezones = ("America/New_York", "Europe/Berlin", "Asia/Tokyo")
 
-    # Add a task without a specified timezone
-    naive_task = Task(
-        run_at=naive_start,
-        callback="mock_callback",
-    )
-
     aware_tasks = []
     for i, iana_timezone in enumerate(iana_timezones, start=1):
         aware_start = naive_start.astimezone(ZoneInfo(iana_timezone))
@@ -268,7 +272,8 @@ async def test_add_tasks_in_different_timezones(scheduler: AsyncScheduler):
             )
         )
 
-    await scheduler.add_task(naive_task)
+    # Add a task without a specified timezone
+    await scheduler.add_task(run_at=naive_start, callback="mock_callback")
     await scheduler.add_tasks(aware_tasks)
 
     # Check that the next wakeup time is equal to earliest task's run_at
@@ -358,33 +363,29 @@ async def test_add_task_replace_existing_behaviour(scheduler: AsyncScheduler):
     start_time = datetime.now(timezone.utc) + timedelta(seconds=10)
     task_id = uuid4().hex
 
-    first_task = Task(
+    await scheduler.add_task(
         run_at=start_time,
         callback="mock_callback",
         task_id=task_id,
     )
 
-    await scheduler.add_task(first_task)
-
-    later_task = Task(
+    # Replace existing task
+    await scheduler.add_task(
         run_at=start_time + timedelta(seconds=10),
         callback="second_callback",
         task_id=task_id,
     )
-
-    # Replace existing task
-    await scheduler.add_task(later_task)
     stored_tasks = await scheduler.fetch_tasks(task_ids=[task_id])
     stored_task = stored_tasks[0]
     assert stored_task.callback == "second_callback"
 
     # Do not replace existing task
-    even_later_task = Task(
+    await scheduler.add_task(
         run_at=start_time + timedelta(seconds=20),
         callback="third_callback",
         task_id=task_id,
+        replace_existing=False,
     )
-    await scheduler.add_task(even_later_task, replace_existing=False)
     stored_task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
     assert stored_task.callback == "second_callback"
     assert stored_task.run_at == start_time + timedelta(seconds=10)

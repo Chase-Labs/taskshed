@@ -31,7 +31,7 @@ class MySQLDataStore(DataStore):
             `paused` TINYINT NOT NULL DEFAULT 0,
             `callback` VARCHAR(63) NOT NULL,
             `kwargs` JSON NOT NULL,
-            `run_type` ENUM('date', 'interval') NOT NULL,
+            `run_type` ENUM('once', 'recurring') NOT NULL,
             `interval` FLOAT DEFAULT NULL,
             `group_id` VARCHAR(63) DEFAULT NULL,
         PRIMARY KEY (`task_id`),
