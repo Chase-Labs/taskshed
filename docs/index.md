@@ -38,7 +38,6 @@ from datetime import datetime, timedelta
 from taskshed.datastores import InMemoryDataStore
 from taskshed.schedulers import AsyncScheduler
 from taskshed.workers import EventDrivenWorker
-from taskshed.models import Task
 
 
 async def foo():
@@ -54,11 +53,8 @@ async def main():
     await scheduler.start()
     await worker.start()
     await scheduler.add_task(
-        Task(
-            run_at=datetime.now() + timedelta(seconds=3),
-            schedule_type="date",
-            callback_name="foo",
-        )
+        callback_name="foo",
+        run_at=datetime.now() + timedelta(seconds=3),
     )
 
 
