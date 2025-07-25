@@ -85,7 +85,7 @@ async def benchmark_apscheduler_schedule_batch(num_tasks: int, runs: int):
         {
             "id": uuid4().hex,
             "func": observer.callback,
-            "trigger": "once",
+            "trigger": "date",
             "run_date": run_date + timedelta(seconds=i),
         }
         for i in range(num_tasks)
