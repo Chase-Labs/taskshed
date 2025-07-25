@@ -104,7 +104,7 @@ async def benchmark_apscheduler_execution_lag(num_tasks: int = 1000):
         scheduler.add_task(
             id=task_id,
             func=observer.callback,
-            trigger="once",
+            trigger="date",
             run_date=run_at,
             kwargs={
                 "scheduled_run_time": run_at,
