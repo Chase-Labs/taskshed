@@ -44,8 +44,15 @@ class AsyncScheduler:
         Schedules a single task.
 
         Args:
-            task (`Task`): The task to schedule.
-            replace_existing (`bool`): If True, replaces an existing task with the same ID.
+            callback (`str`): The name of the callback function to execute.
+            run_at (`datetime | None`): The time at which the task should run. Defaults to now if not provided.
+            kwargs (`dict[str, T] | None`): A dictionary of keyword arguments to pass to the callback. Defaults to an empty dictionary.
+            run_type (`Literal["once", "recurring"]`): Specifies whether the task is a one-time or recurring task. Defaults to "once".
+            interval (`timedelta | None`): The interval for recurring tasks. Required if `run_type` is "recurring".
+            task_id (`str | None`): A unique identifier for the task. A random ID is generated if not provided.
+            group_id (`str | None`): An optional identifier to group related tasks.
+            paused (`bool`): If True, the task will be scheduled but not executed until resumed. Defaults to False.
+            replace_existing (`bool`): If True, replaces an existing task with the same ID. Defaults to True.
         """
         task = Task(
             callback=callback,
