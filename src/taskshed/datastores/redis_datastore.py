@@ -16,6 +16,8 @@ class RedisConfig:
     port: int = 6379
     username: str | None = None
     password: str | None = None
+    unix_socket_path: str | None = None
+    ssl: bool = False
 
 
 class RedisDataStore(DataStore):
@@ -63,9 +65,9 @@ class RedisDataStore(DataStore):
             "task_id": task.task_id,
             "run_at": task.run_at.timestamp(),
             "paused": int(task.paused),
-            "callback_name": task.callback_name,
+            "callback": task.callback,
             "kwargs": json.dumps(task.kwargs),
-            "schedule_type": task.schedule_type,
+            "run_type": task.run_type,
             "interval": task.interval_seconds() if task.interval else "",
             "group_id": task.group_id if task.group_id is not None else "",
         }
@@ -80,9 +82,9 @@ class RedisDataStore(DataStore):
             task_id=data["task_id"],
             run_at=datetime.fromtimestamp(float(data["run_at"])),
             paused=bool(int(data["paused"])),
-            callback_name=data["callback_name"],
+            callback=data["callback"],
             kwargs=json.loads(data["kwargs"]),
-            schedule_type=data.get("schedule_type"),
+            run_type=data.get("run_type"),
             interval=interval,
             group_id=data["group_id"] if data.get("group_id") else None,
         )
@@ -98,6 +100,8 @@ class RedisDataStore(DataStore):
             port=self._config.port,
             username=self._config.username,
             password=self._config.password,
+            unix_socket_path=self._config.unix_socket_path,
+            ssl=self._config.ssl,
             decode_responses=True,
         )
         self._hsetallnx = self._client.register_script(self.LUA_HSETNX_SCRIPT)

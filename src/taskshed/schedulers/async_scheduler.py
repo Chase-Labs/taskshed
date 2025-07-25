@@ -1,9 +1,13 @@
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Literal, TypeVar
+from uuid import uuid4
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 from taskshed.workers.event_driven_worker import EventDrivenWorker
+
+T = TypeVar("T")
 
 
 class AsyncScheduler:
@@ -12,7 +16,7 @@ class AsyncScheduler:
 
     The scheduler stores tasks via a task store and uses an executor to run them.
     It manages periodic or one-time tasks, waking up to execute due tasks and
-    rescheduling itself based on the next task's schedule_type time.
+    rescheduling itself based on the next task's run_type.
     """
 
     def __init__(
@@ -23,14 +27,43 @@ class AsyncScheduler:
 
     # ------------------------------------------------------------------------------ public methods
 
-    async def add_task(self, task: Task, *, replace_existing: bool = True):
+    async def add_task(
+        self,
+        callback: str,
+        run_at: datetime | None = None,
+        kwargs: dict[str, T] | None = None,
+        run_type: Literal["once", "recurring"] = "once",
+        interval: timedelta | None = None,
+        task_id: str | None = None,
+        group_id: str | None = None,
+        paused: bool = False,
+        *,
+        replace_existing: bool = True,
+    ):
         """
         Schedules a single task.
 
         Args:
-            task (`Task`): The task to schedule.
-            replace_existing (`bool`): If True, replaces an existing task with the same ID.
+            callback (`str`): The name of the callback function to execute.
+            run_at (`datetime | None`): The time at which the task should run. Defaults to now if not provided.
+            kwargs (`dict[str, T] | None`): A dictionary of keyword arguments to pass to the callback. Defaults to an empty dictionary.
+            run_type (`Literal["once", "recurring"]`): Specifies whether the task is a one-time or recurring task. Defaults to "once".
+            interval (`timedelta | None`): The interval for recurring tasks. Required if `run_type` is "recurring".
+            task_id (`str | None`): A unique identifier for the task. A random ID is generated if not provided.
+            group_id (`str | None`): An optional identifier to group related tasks.
+            paused (`bool`): If True, the task will be scheduled but not executed until resumed. Defaults to False.
+            replace_existing (`bool`): If True, replaces an existing task with the same ID. Defaults to True.
         """
+        task = Task(
+            callback=callback,
+            run_at=run_at or datetime.now(timezone.utc),
+            kwargs=kwargs or dict(),
+            run_type=run_type,
+            interval=interval,
+            task_id=task_id or uuid4().hex,
+            group_id=group_id,
+            paused=paused,
+        )
         await self._datastore.add_tasks((task,), replace_existing=replace_existing)
         await self._notify_worker(task.run_at)
 

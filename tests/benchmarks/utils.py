@@ -42,15 +42,7 @@ async def build_mysql_taskshed(callback_map: dict) -> AsyncScheduler:
 
 
 async def build_redis_taskshed(callback_map: dict) -> AsyncScheduler:
-    datastore = RedisDataStore(
-        callback_map=callback_map,
-        config=RedisConfig(
-            host="localhost",
-            port=6379,
-            username=None,
-            password=None,
-        ),
-    )
+    datastore = RedisDataStore(callback_map=callback_map, config=RedisConfig())
     worker = EventDrivenWorker(callback_map=callback_map, datastore=datastore)
     scheduler = AsyncScheduler(datastore=datastore, worker=worker)
 

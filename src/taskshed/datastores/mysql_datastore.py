@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from ssl import SSLContext
 from typing import AsyncGenerator
 
 import aiomysql
@@ -14,11 +15,20 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 
 @dataclass(frozen=True, kw_only=True)
 class MySQLConfig:
+    """
+    Configuration for connecting to a MySQL database.
+    """
+
     host: str = "localhost"
-    db: str
+    port: int = 3306
     user: str = "root"
     password: str | None = None
-    port: int = 3306
+    db: str
+    connect_timeout: int | None = None
+    ssl: bool | SSLContext | None = None
+    unix_socket: str | None = None
+    auth_plugin: str | None = None
+    server_public_key: str | bytes | None = None
 
 
 class MySQLDataStore(DataStore):
@@ -29,9 +39,9 @@ class MySQLDataStore(DataStore):
             `task_id` VARCHAR(63) NOT NULL,
             `run_at` BIGINT UNSIGNED NOT NULL,
             `paused` TINYINT NOT NULL DEFAULT 0,
-            `callback_name` VARCHAR(63) NOT NULL,
+            `callback` VARCHAR(63) NOT NULL,
             `kwargs` JSON NOT NULL,
-            `schedule_type` ENUM('date', 'interval') NOT NULL,
+            `run_type` ENUM('once', 'recurring') NOT NULL,
             `interval` FLOAT DEFAULT NULL,
             `group_id` VARCHAR(63) DEFAULT NULL,
         PRIMARY KEY (`task_id`),
@@ -60,16 +70,16 @@ class MySQLDataStore(DataStore):
     """
 
     _INSERT_TASKS_WITHOUT_REPLACEMENT_QUERY = """
-    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback_name`, `kwargs`, `schedule_type`, `interval`, `group_id`)
+    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
     """
 
     _INSERT_TASKS_WITH_REPLACEMENT_QUERY = """
-    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback_name`, `kwargs`, `schedule_type`, `interval`, `group_id`)
+    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS new
         ON DUPLICATE KEY UPDATE
             `run_at` = new.run_at,
-            `callback_name` = new.callback_name,
+            `callback` = new.callback,
             `kwargs` = new.kwargs,
             `paused` = new.paused,
             `group_id` = new.group_id;
@@ -163,9 +173,9 @@ class MySQLDataStore(DataStore):
             task_id=row["task_id"],
             run_at=self._convert_timestamp(row["run_at"]),
             paused=bool(row["paused"]),
-            callback_name=row["callback_name"],
+            callback=row["callback"],
             kwargs=json.loads(row["kwargs"]),
-            schedule_type=row["schedule_type"],
+            run_type=row["run_type"],
             interval=interval,
             group_id=row["group_id"],
         )
@@ -225,9 +235,9 @@ class MySQLDataStore(DataStore):
                             task.task_id,
                             self._convert_datetime(task.run_at),
                             task.paused,
-                            task.callback_name,
+                            task.callback,
                             json.dumps(task.kwargs),
-                            task.schedule_type,
+                            task.run_type,
                             task.interval_seconds(),
                             task.group_id,
                         )

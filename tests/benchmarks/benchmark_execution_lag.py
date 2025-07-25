@@ -5,10 +5,10 @@ from uuid import uuid4
 
 from observers.execution_lag_observer import ExecutionLagObserver
 
-# -------------------------------------------------------------------------------- aioscheduler + mysql
+# -------------------------------------------------------------------------------- taskshed + mysql
 
 
-async def benchmark_aioscheduler_mysql_execution_lag(num_tasks: int = 1000):
+async def benchmark_taskshed_mysql_execution_lag(num_tasks: int = 1000):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_mysql_taskshed
 
@@ -30,12 +30,12 @@ async def benchmark_aioscheduler_mysql_execution_lag(num_tasks: int = 1000):
             Task(
                 task_id=task_id,
                 run_at=run_at,
-                callback_name="observer_callback",
+                callback="observer_callback",
                 kwargs={
                     "scheduled_run_time": run_at,
                     "scheduled_task_id": task_id,
                 },
-                schedule_type="date",
+                run_type="once",
                 interval=None,
                 group_id=None,
             )
@@ -44,10 +44,10 @@ async def benchmark_aioscheduler_mysql_execution_lag(num_tasks: int = 1000):
     await scheduler.add_tasks(tasks)
 
 
-# -------------------------------------------------------------------------------- aioscheduler + redis
+# -------------------------------------------------------------------------------- taskshed + redis
 
 
-async def benchmark_aioscheduler_redis_execution_lag(num_tasks: int = 1000):
+async def benchmark_taskshed_redis_execution_lag(num_tasks: int = 1000):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_redis_taskshed
 
@@ -70,12 +70,12 @@ async def benchmark_aioscheduler_redis_execution_lag(num_tasks: int = 1000):
             Task(
                 task_id=task_id,
                 run_at=run_at,
-                callback_name="observer_callback",
+                callback="observer_callback",
                 kwargs={
                     "scheduled_run_time": run_at,
                     "scheduled_task_id": task_id,
                 },
-                schedule_type="date",
+                run_type="once",
             )
         )
 
@@ -167,5 +167,5 @@ if __name__ == "__main__":
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(benchmark_aioscheduler_redis_execution_lag(num_tasks=NUM_TASKS))
+    loop.create_task(benchmark_taskshed_redis_execution_lag(num_tasks=NUM_TASKS))
     loop.run_forever()

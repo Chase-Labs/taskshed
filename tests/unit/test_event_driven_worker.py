@@ -30,9 +30,8 @@ async def worker() -> EventDrivenWorker:
 @pytest.mark.asyncio
 async def test_run_date_task(worker: EventDrivenWorker):
     task = Task(
-        callback_name="mock_callback",
+        callback="mock_callback",
         kwargs={"some_arg": 123},
-        schedule_type="date",
         run_at=datetime.now(timezone.utc),
         group_id=1,
     )
