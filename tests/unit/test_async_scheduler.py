@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
+from redis.asyncio import Redis
 from zoneinfo import ZoneInfo
 
 from taskshed.datastores.memory_datastore import InMemoryDataStore
@@ -54,14 +55,7 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
         )
 
     elif request.param == "redis":
-        datastore = RedisDataStore(
-            config=RedisConfig(
-                host="localhost",
-                port=6379,
-                username=None,
-                password=None,
-            ),
-        )
+        datastore = RedisDataStore(config=RedisConfig())
 
     await datastore.start()
     await datastore.remove_all_tasks()
