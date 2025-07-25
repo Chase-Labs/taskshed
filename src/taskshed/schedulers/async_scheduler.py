@@ -56,7 +56,7 @@ class AsyncScheduler:
         """
         task = Task(
             callback=callback,
-            run_at=run_at or datetime.now(),
+            run_at=run_at or datetime.now(timezone.utc),
             kwargs=kwargs or dict(),
             run_type=run_type,
             interval=interval,
