@@ -9,7 +9,6 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
-from redis.asyncio import Redis
 from zoneinfo import ZoneInfo
 
 from taskshed.datastores.memory_datastore import InMemoryDataStore
