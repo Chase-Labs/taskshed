@@ -1,5 +1,4 @@
 import json
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import isinf
 from typing import Iterable
@@ -8,14 +7,6 @@ from redis.asyncio import Redis
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
-
-
-@dataclass(frozen=True, kw_only=True)
-class RedisConfig:
-    host: str = "localhost"
-    port: int = 6379
-    username: str | None = None
-    password: str | None = None
 
 
 class RedisDataStore(DataStore):
@@ -33,7 +24,7 @@ class RedisDataStore(DataStore):
     3. https://redis.io/docs/latest/develop/data-types/sets/
     """
 
-    KEY_PREFIX = "scheduler"
+    KEY_PREFIX = "tashshed"
 
     # -------------------------------------------------------------------------------- scripts
 
@@ -47,9 +38,8 @@ class RedisDataStore(DataStore):
 
     # -------------------------------------------------------------------------------- private methods
 
-    def __init__(self, config: RedisConfig | None = None):
-        self._config = config or RedisConfig()
-        self._client: Redis | None = None
+    def __init__(self, client: Redis):
+        self._client = client
         self._queue_index = f"{self.KEY_PREFIX}:task_queue"
 
     def _get_group_index(self, group_id: str) -> str:
@@ -90,24 +80,10 @@ class RedisDataStore(DataStore):
     # -------------------------------------------------------------------------------- public methods
 
     async def start(self) -> None:
-        if self._client is not None:
-            return
-
-        self._client = Redis(
-            host=self._config.host,
-            port=self._config.port,
-            username=self._config.username,
-            password=self._config.password,
-            decode_responses=True,
-        )
         self._hsetallnx = self._client.register_script(self.LUA_HSETNX_SCRIPT)
 
     async def shutdown(self) -> None:
-        if self._client is None:
-            return
-
         await self._client.close()
-        self._client = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True

@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from ssl import SSLContext
 from typing import AsyncGenerator
 
 import aiomysql
@@ -14,11 +15,20 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 
 @dataclass(frozen=True, kw_only=True)
 class MySQLConfig:
+    """
+    Configuration for connecting to a MySQL database.
+    """
+
     host: str = "localhost"
-    db: str
+    port: int = 3306
     user: str = "root"
     password: str | None = None
-    port: int = 3306
+    db: str
+    connect_timeout: int | None = None
+    ssl: bool | SSLContext | None = None
+    unix_socket: str | None = None
+    auth_plugin: str | None = None
+    server_public_key: str | bytes | None = None
 
 
 class MySQLDataStore(DataStore):
