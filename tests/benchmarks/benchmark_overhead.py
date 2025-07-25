@@ -4,7 +4,7 @@ from random import uniform
 
 from observers.overhead_observer import OverheadObserver
 
-# -------------------------------------------------------------------------------- aioscheduler + mysql
+# -------------------------------------------------------------------------------- taskshed + mysql
 
 
 async def benchmark_taskshed_mysql_overhead(test_length_seconds: int, num_tasks: int):
@@ -48,12 +48,10 @@ async def benchmark_taskshed_mysql_overhead(test_length_seconds: int, num_tasks:
         await asyncio.sleep(sleep_time)
 
 
-# -------------------------------------------------------------------------------- aioscheduler + redis
+# -------------------------------------------------------------------------------- taskshed + redis
 
 
-async def benchmark_aioscheduler_redis_overhead(
-    test_length_seconds: int, num_tasks: int
-):
+async def benchmark_taskshed_redis_overhead(test_length_seconds: int, num_tasks: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_redis_taskshed
 
@@ -190,7 +188,7 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(
-        benchmark_aioscheduler_redis_overhead(
+        benchmark_taskshed_redis_overhead(
             test_length_seconds=TEST_LENGTH_SECONDS, num_tasks=NUM_TASKS
         )
     )

@@ -9,10 +9,10 @@ from observers.schedule_observer import ScheduleObserver
 random.seed(42)  # For reproducibility
 
 
-# -------------------------------------------------------------------------------- aioscheduler + mysql
+# -------------------------------------------------------------------------------- taskshed + mysql
 
 
-async def benchmark_aioscheduler_mysql_schedule_batch(num_tasks: int, runs: int):
+async def benchmark_taskshed_mysql_schedule_batch(num_tasks: int, runs: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_mysql_taskshed
 
@@ -40,10 +40,10 @@ async def benchmark_aioscheduler_mysql_schedule_batch(num_tasks: int, runs: int)
     observer.print_results()
 
 
-# -------------------------------------------------------------------------------- aioscheduler + redis
+# -------------------------------------------------------------------------------- taskshed + redis
 
 
-async def benchmark_aioscheduler_redis_schedule_batch(num_tasks: int, runs: int):
+async def benchmark_taskshed_redis_schedule_batch(num_tasks: int, runs: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_redis_taskshed
 
@@ -166,6 +166,6 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(
-        benchmark_aioscheduler_redis_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS)
+        benchmark_taskshed_redis_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS)
     )
     loop.run_forever()

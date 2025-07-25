@@ -19,10 +19,10 @@ def _build_observer(num_tasks: int) -> HighConcurrencyObserver:
     )
 
 
-# -------------------------------------------------------------------------------- aioscheduler + mysql
+# -------------------------------------------------------------------------------- taskshed + mysql
 
 
-async def benchmark_aioscheduler_mysql_high_concurrency(num_tasks: int):
+async def benchmark_taskshed_mysql_high_concurrency(num_tasks: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_mysql_taskshed
 
@@ -43,10 +43,10 @@ async def benchmark_aioscheduler_mysql_high_concurrency(num_tasks: int):
     print(f"Scheduled {num_tasks} in {(perf_counter() - schedule_start):.5f}s")
 
 
-# -------------------------------------------------------------------------------- aioscheduler + redis
+# -------------------------------------------------------------------------------- taskshed + redis
 
 
-async def benchmark_aioscheduler_redis_high_concurrency(num_tasks: int):
+async def benchmark_taskshed_redis_high_concurrency(num_tasks: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_redis_taskshed
 
@@ -140,5 +140,5 @@ if __name__ == "__main__":
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(benchmark_aioscheduler_redis_high_concurrency(NUM_TASKS))
+    loop.create_task(benchmark_taskshed_redis_high_concurrency(NUM_TASKS))
     loop.run_forever()
