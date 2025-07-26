@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal, TypeVar
 from uuid import uuid4
 

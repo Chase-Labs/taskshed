@@ -29,7 +29,7 @@ The base version of TaskShed has no additional dependencies, though needs a driv
     pip install "taskshed[mysql]"
     ```
 
-## Example
+## Quickstart
 
 Create a file `main.py` with:
 
