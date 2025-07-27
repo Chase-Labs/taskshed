@@ -7,14 +7,8 @@ T = TypeVar("T")
 
 
 @dataclass(kw_only=True)
-class TaskId:
-    # The unique ID of the task
-    task_id: str = field(default_factory=lambda: uuid4().hex)
-
-
-@dataclass(kw_only=True)
-class TaskExecutionTime(TaskId):
-    # The datetime that the Task is supposed to be executed at
+class TaskExecutionTime:
+    task_id: str
     run_at: datetime
 
     def __post_init__(self):
@@ -22,9 +16,11 @@ class TaskExecutionTime(TaskId):
 
 
 @dataclass(kw_only=True)
-class Task(TaskExecutionTime):
+class Task:
     callback: str
+    run_at: datetime
     run_type: Literal["once", "recurring"] = "once"
+    task_id: str = field(default_factory=lambda: uuid4().hex)
     kwargs: dict[str, T] = field(default_factory=dict)
     interval: timedelta | None = None
     group_id: str | None = None
