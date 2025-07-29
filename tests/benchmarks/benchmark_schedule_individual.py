@@ -1,8 +1,12 @@
 import asyncio
 import random
+import sys
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from uuid import uuid4
+
+sys.path.append("/Users/jacob/chaselabs/taskshed")
+
 
 from tests.benchmarks.observers.schedule_observer import ScheduleObserver
 
@@ -31,12 +35,14 @@ async def benchmark_taskshed_mysql_schedule_batch(num_tasks: int, runs: int):
 
     random.shuffle(tasks)
 
-    for _ in range(runs):
+    for i in range(runs):
         start = perf_counter()
         for task in tasks:
-            await scheduler.add_task(task)
+            await scheduler.add_task(
+                run_at=task.run_at, callback=task.callback, run_type=task.run_type
+            )
         observer.record(perf_counter() - start)
-        await scheduler._task_store.remove_all_tasks()
+        await scheduler._datastore.remove_all_tasks()
 
     observer.print_results()
 
@@ -66,9 +72,11 @@ async def benchmark_taskshed_redis_schedule_individual(num_tasks: int, runs: int
     for _ in range(runs):
         start = perf_counter()
         for task in tasks:
-            await scheduler.add_task(task)
+            await scheduler.add_task(
+                run_at=task.run_at, callback=task.callback, run_type=task.run_type
+            )
         observer.record(perf_counter() - start)
-        await scheduler._task_store.remove_all_tasks()
+        await scheduler._datastore.remove_all_tasks()
 
     observer.print_results()
 
@@ -106,7 +114,7 @@ async def benchmark_apscheduler_schedule_batch(num_tasks: int, runs: int):
 
 
 if __name__ == "__main__":
-    NUM_TASKS = 1000
+    NUM_TASKS = 500
     NUM_RUNS = 1000
 
     loop = asyncio.new_event_loop()

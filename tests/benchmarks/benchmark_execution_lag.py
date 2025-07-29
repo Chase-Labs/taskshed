@@ -32,7 +32,7 @@ async def benchmark_taskshed_mysql_execution_lag(num_tasks: int = 1000):
                 run_at=run_at,
                 callback="observer_callback",
                 kwargs={
-                    "scheduled_run_time": run_at,
+                    "scheduled_run_time": run_at.isoformat(),
                     "scheduled_task_id": task_id,
                 },
                 run_type="once",
@@ -167,5 +167,5 @@ if __name__ == "__main__":
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(benchmark_taskshed_redis_execution_lag(num_tasks=NUM_TASKS))
+    loop.create_task(benchmark_taskshed_mysql_execution_lag(num_tasks=NUM_TASKS))
     loop.run_forever()

@@ -140,5 +140,5 @@ if __name__ == "__main__":
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(benchmark_taskshed_redis_high_concurrency(NUM_TASKS))
+    loop.create_task(benchmark_taskshed_mysql_high_concurrency(NUM_TASKS))
     loop.run_forever()

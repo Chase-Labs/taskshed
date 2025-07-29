@@ -188,7 +188,7 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(
-        benchmark_taskshed_redis_overhead(
+        benchmark_taskshed_mysql_overhead(
             test_length_seconds=TEST_LENGTH_SECONDS, num_tasks=NUM_TASKS
         )
     )

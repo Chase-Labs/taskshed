@@ -35,7 +35,7 @@ async def benchmark_taskshed_mysql_schedule_batch(num_tasks: int, runs: int):
         start = perf_counter()
         await scheduler.add_tasks(tasks)
         observer.record(perf_counter() - start)
-        await scheduler._task_store.remove_all_tasks()
+        await scheduler._datastore.remove_all_tasks()
 
     observer.print_results()
 
@@ -66,7 +66,7 @@ async def benchmark_taskshed_redis_schedule_batch(num_tasks: int, runs: int):
         start = perf_counter()
         await scheduler.add_tasks(tasks)
         observer.record(perf_counter() - start)
-        await scheduler._task_store.remove_all_tasks()
+        await scheduler._datastore.remove_all_tasks()
 
     observer.print_results()
 
@@ -166,6 +166,6 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(
-        benchmark_taskshed_redis_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS)
+        benchmark_taskshed_mysql_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS)
     )
     loop.run_forever()

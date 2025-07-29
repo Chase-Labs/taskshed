@@ -15,9 +15,11 @@ class ExecutionLagObserver(BenchmarkObserver):
     async def callback(
         self, scheduled_run_time: datetime, scheduled_task_id: str | int
     ):
-        self.execution_lag.append(
-            (datetime.now(tz=timezone.utc) - scheduled_run_time).total_seconds()
-        )
+        calltime = datetime.now(tz=timezone.utc)
+        if isinstance(scheduled_run_time, str):
+            scheduled_run_time = datetime.fromisoformat(scheduled_run_time)
+
+        self.execution_lag.append((calltime - scheduled_run_time).total_seconds())
         self.task_ids.add(scheduled_task_id)
         if len(self.execution_lag) >= self.num_tasks:
             self.print_results()

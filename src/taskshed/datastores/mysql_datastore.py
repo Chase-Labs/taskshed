@@ -174,7 +174,7 @@ class MySQLDataStore(DataStore):
             run_at=self._convert_timestamp(row["run_at"]),
             paused=bool(row["paused"]),
             callback=row["callback"],
-            kwargs=json.loads(row["kwargs"]),
+            kwargs=self._deserialize_kwargs(row["kwargs"]),
             run_type=row["run_type"],
             interval=interval,
             group_id=row["group_id"],
@@ -185,6 +185,12 @@ class MySQLDataStore(DataStore):
 
     def _convert_timestamp(self, timestamp: int) -> datetime:
         return datetime.fromtimestamp(timestamp / 1_000_000, tz=timezone.utc)
+
+    def _serialize_kwargs(self, kwargs: dict) -> str:
+        return json.dumps(kwargs)
+
+    def _deserialize_kwargs(self, raw: str | None) -> dict:
+        return json.loads(raw) if raw else {}
 
     # -------------------------------------------------------------------------------- public methods
 
@@ -236,7 +242,7 @@ class MySQLDataStore(DataStore):
                             self._convert_datetime(task.run_at),
                             task.paused,
                             task.callback,
-                            json.dumps(task.kwargs),
+                            self._serialize_kwargs(task.kwargs),
                             task.run_type,
                             task.interval_seconds(),
                             task.group_id,
