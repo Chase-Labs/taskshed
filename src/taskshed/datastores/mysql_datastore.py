@@ -35,19 +35,19 @@ class MySQLDataStore(DataStore):
     # -------------------------------------------------------------------------------- queries
 
     _CREATE_TABLE_QUERY = """
-    CREATE TABLE IF NOT EXISTS _taskshed_data (
-            `task_id` VARCHAR(63) NOT NULL,
-            `run_at` BIGINT UNSIGNED NOT NULL,
-            `paused` TINYINT NOT NULL DEFAULT 0,
-            `callback` VARCHAR(63) NOT NULL,
-            `kwargs` JSON NOT NULL,
-            `run_type` ENUM('once', 'recurring') NOT NULL,
-            `interval` FLOAT DEFAULT NULL,
-            `group_id` VARCHAR(63) DEFAULT NULL,
+    CREATE TABLE IF NOT EXISTS `_taskshed_data` (
+        `task_id` varchar(63) NOT NULL,
+        `run_at` bigint unsigned NOT NULL,
+        `paused` tinyint NOT NULL DEFAULT '0',
+        `callback` varchar(63) NOT NULL,
+        `kwargs` TEXT NOT NULL,
+        `run_type` enum('once','recurring') NOT NULL,
+        `interval` float DEFAULT NULL,
+        `group_id` varchar(63) DEFAULT NULL,
         PRIMARY KEY (`task_id`),
-        UNIQUE INDEX `task_id_UNIQUE` (`task_id` ASC),
-        INDEX `idx_group_id` (`group_id` ASC),
-        INDEX `idx_paused_run_at` (`paused` ASC, `run_at` ASC)
+        UNIQUE KEY `task_id_UNIQUE` (`task_id`),
+        KEY `idx_group_id` (`group_id`),
+        KEY `idx_paused_run_at` (`paused`,`run_at`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
     """
 
@@ -174,7 +174,7 @@ class MySQLDataStore(DataStore):
             run_at=self._convert_timestamp(row["run_at"]),
             paused=bool(row["paused"]),
             callback=row["callback"],
-            kwargs=self._deserialize_kwargs(row["kwargs"]),
+            kwargs=json.loads(row["kwargs"]),
             run_type=row["run_type"],
             interval=interval,
             group_id=row["group_id"],
@@ -185,12 +185,6 @@ class MySQLDataStore(DataStore):
 
     def _convert_timestamp(self, timestamp: int) -> datetime:
         return datetime.fromtimestamp(timestamp / 1_000_000, tz=timezone.utc)
-
-    def _serialize_kwargs(self, kwargs: dict) -> str:
-        return json.dumps(kwargs)
-
-    def _deserialize_kwargs(self, raw: str | None) -> dict:
-        return json.loads(raw) if raw else {}
 
     # -------------------------------------------------------------------------------- public methods
 
@@ -242,7 +236,7 @@ class MySQLDataStore(DataStore):
                             self._convert_datetime(task.run_at),
                             task.paused,
                             task.callback,
-                            self._serialize_kwargs(task.kwargs),
+                            json.dumps(task.kwargs),
                             task.run_type,
                             task.interval_seconds(),
                             task.group_id,
