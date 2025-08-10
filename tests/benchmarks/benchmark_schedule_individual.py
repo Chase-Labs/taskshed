@@ -16,7 +16,7 @@ random.seed(42)  # For reproducibility
 # -------------------------------------------------------------------------------- taskshed + mysql
 
 
-async def benchmark_taskshed_mysql_schedule_batch(num_tasks: int, runs: int):
+async def benchmark_taskshed_mysql_schedule_individual(num_tasks: int, runs: int):
     from taskshed.models.task_models import Task
     from tests.benchmarks.utils import build_mysql_taskshed
 
@@ -91,7 +91,7 @@ async def benchmark_apscheduler_schedule_batch(num_tasks: int, runs: int):
     scheduler = build_apscheduler()
 
     run_date = datetime.now(timezone.utc) + timedelta(hours=1)
-    tasks = [
+    jobs = [
         {
             "id": uuid4().hex,
             "func": observer.callback,
@@ -101,25 +101,25 @@ async def benchmark_apscheduler_schedule_batch(num_tasks: int, runs: int):
         for i in range(num_tasks)
     ]
 
-    random.shuffle(tasks)
+    random.shuffle(jobs)
 
     for _ in range(runs):
         start = perf_counter()
-        for task in tasks:
-            scheduler.add_task(**task)
+        for job in jobs:
+            scheduler.add_job(**job)
         observer.record(perf_counter() - start)
-        scheduler.remove_all_tasks()
+        scheduler.remove_all_jobs()
 
     observer.print_results()
 
 
 if __name__ == "__main__":
     NUM_TASKS = 500
-    NUM_RUNS = 1000
+    NUM_RUNS = 500
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(
-        benchmark_taskshed_mysql_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS)
+        benchmark_taskshed_redis_schedule_individual(num_tasks=NUM_TASKS, runs=NUM_RUNS)
     )
     loop.run_forever()

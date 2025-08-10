@@ -102,7 +102,7 @@ async def benchmark_apscheduler_overhead(test_length_seconds: int, num_tasks: in
     observer = OverheadObserver(num_tasks)
     sleep_time = test_length_seconds / num_tasks
 
-    scheduler.add_task(
+    scheduler.add_job(
         func=observer.callback,
         trigger="date",
         run_date=datetime.now(timezone.utc) + timedelta(seconds=0.1),
@@ -112,7 +112,7 @@ async def benchmark_apscheduler_overhead(test_length_seconds: int, num_tasks: in
     for i in range(1, num_tasks):
         delay = uniform(0.5, 5)
         func_wait = uniform(0.5, 5)
-        scheduler.add_task(
+        scheduler.add_job(
             id=f"Task {i}",
             func=observer.callback,
             trigger="date",
@@ -133,7 +133,7 @@ async def _arq_task(ctx, *, delay: float, scheduled_task_id: str):
     )
 
 
-async def benchmark_arq_execution_lag(test_length_seconds: int, num_tasks: int):
+async def benchmark_arq_overhead(test_length_seconds: int, num_tasks: int):
     from arq import create_pool
     from arq.connections import RedisSettings
     from arq.worker import Worker
@@ -152,7 +152,7 @@ async def benchmark_arq_execution_lag(test_length_seconds: int, num_tasks: int):
         on_startup=startup,
         redis_settings=redis_settings,
         keep_result=0,
-        max_tasks=num_tasks + 1,
+        max_jobs=num_tasks + 1,
     )
     asyncio.create_task(worker.async_run())
     redis = await create_pool(redis_settings)
@@ -160,9 +160,9 @@ async def benchmark_arq_execution_lag(test_length_seconds: int, num_tasks: int):
 
     # ---------------------------------------- benchmark
 
-    await redis.enqueue_task(
+    await redis.enqueue_job(
         "_arq_task",
-        _task_id="Task 0",
+        _job_id="Task 0",
         _defer_until=datetime.now(tz=timezone.utc) + timedelta(seconds=0.1),
         delay=test_length_seconds,
         scheduled_task_id="Task 0",
@@ -171,9 +171,9 @@ async def benchmark_arq_execution_lag(test_length_seconds: int, num_tasks: int):
     for i in range(1, num_tasks):
         delay = uniform(0.5, 5)
         func_wait = uniform(0.5, 5)
-        await redis.enqueue_task(
+        await redis.enqueue_job(
             "_arq_task",
-            _task_id=f"Task {i}",
+            _job_id=f"Task {i}",
             _defer_until=datetime.now(tz=timezone.utc) + timedelta(seconds=delay),
             delay=func_wait,
             scheduled_task_id=f"Task {i}",
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(
-        benchmark_taskshed_mysql_overhead(
+        benchmark_apscheduler_overhead(
             test_length_seconds=TEST_LENGTH_SECONDS, num_tasks=NUM_TASKS
         )
     )

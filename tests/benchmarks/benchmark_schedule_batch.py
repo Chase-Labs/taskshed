@@ -81,7 +81,7 @@ async def benchmark_apscheduler_schedule_batch(num_tasks: int, runs: int):
     scheduler = build_apscheduler()
 
     run_date = datetime.now(timezone.utc) + timedelta(hours=1)
-    tasks = [
+    jobs = [
         {
             "id": uuid4().hex,
             "func": observer.callback,
@@ -91,14 +91,14 @@ async def benchmark_apscheduler_schedule_batch(num_tasks: int, runs: int):
         for i in range(num_tasks)
     ]
 
-    random.shuffle(tasks)
+    random.shuffle(jobs)
 
     for _ in range(runs):
         start = perf_counter()
-        for task in tasks:
-            scheduler.add_task(**task)
+        for job in jobs:
+            scheduler.add_job(**job)
         observer.record(perf_counter() - start)
-        scheduler.remove_all_tasks()
+        scheduler.remove_all_jobs()
 
     observer.print_results()
 
@@ -129,7 +129,7 @@ async def benchmark_arq_schedule_batch(num_tasks: int, runs: int):
         on_startup=startup,
         redis_settings=redis_settings,
         keep_result=0,
-        max_tasks=num_tasks + 1,
+        max_jobs=num_tasks + 1,
     )
 
     asyncio.create_task(worker.async_run())
@@ -139,7 +139,7 @@ async def benchmark_arq_schedule_batch(num_tasks: int, runs: int):
     # ---------------------------------------- benchmark
 
     run_date = datetime.now(timezone.utc) + timedelta(hours=1)
-    tasks = [
+    jobs = [
         {
             "function": "_arq_task",
             "_task_id": uuid4().hex,
@@ -147,12 +147,12 @@ async def benchmark_arq_schedule_batch(num_tasks: int, runs: int):
         }
         for i in range(num_tasks)
     ]
-    random.shuffle(tasks)
+    random.shuffle(jobs)
 
     for _ in range(runs):
         start = perf_counter()
-        for task in tasks:
-            await redis.enqueue_task(**task)
+        for job in jobs:
+            await redis.enqueue_job(**job)
         observer.record(perf_counter() - start)
         await redis.flushall()
 
@@ -160,12 +160,10 @@ async def benchmark_arq_schedule_batch(num_tasks: int, runs: int):
 
 
 if __name__ == "__main__":
-    NUM_TASKS = 1000
-    NUM_RUNS = 1000
+    NUM_TASKS = 500
+    NUM_RUNS = 500
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(
-        benchmark_taskshed_mysql_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS)
-    )
+    loop.create_task(benchmark_arq_schedule_batch(num_tasks=NUM_TASKS, runs=NUM_RUNS))
     loop.run_forever()

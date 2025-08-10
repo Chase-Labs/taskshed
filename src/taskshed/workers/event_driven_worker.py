@@ -73,6 +73,9 @@ class EventDrivenWorker(BaseWorker):
         self._cancel_timer()
         await self.update_schedule()
 
+    def _process_due_tasks_helper(self):
+        self._event_loop.create_task(self._process_due_tasks())
+
     def _run_task(self, task: Task):
         # Takes the coroutine and schedules it for execution on the event loop.
         if not self._event_loop:
@@ -144,7 +147,7 @@ class EventDrivenWorker(BaseWorker):
             delay = max((wakeup - datetime.now(tz=timezone.utc)).total_seconds(), 0)
             self._timer_handle = self._event_loop.call_later(
                 delay=delay,
-                callback=partial(
-                    self._event_loop.create_task, self._process_due_tasks()
+                callback=lambda: self._event_loop.create_task(
+                    self._process_due_tasks()
                 ),
             )
