@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime, timezone
-from functools import partial
 from typing import Awaitable, Callable, TypeVar
 
 from taskshed.datastores.base_datastore import DataStore
