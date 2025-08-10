@@ -1,6 +1,6 @@
 # Datastores
 
-At present, there are three supported datastore techniques that TaskShed supports:
+Datastores store the tasks. At present, there are three supported datastore techniques that TaskShed supports:
 
 * **In Memory**: Keeps the Task data in Python dictionaries and lists. This is useful for prototyping and testing, but does not have persistence, and shouldn't be used in production.
 * **MySQL**: Uses the awesome [aiomysql](https://github.com/aio-libs/aiomysql) library to create a connection pool to a MySQL server, and asynchronously executes commands.
@@ -22,13 +22,13 @@ In order to levearage a persistant datastore you'll need to install the addition
 
 ## Serialization
 
-Serialization is the process of converting data into a format that can be easily stored and reconstructed later. TaskShed serializes/deserializes data in **JSON**, which has many benefits: it is human readable, quick to parse and is supported by all databases and languages.
+Serialization is the process of converting data into a format that can be stored and reconstructed later. TaskShed serializes/deserializes data in **JSON**, which is human readable and is supported by all databases and languages without the need for additional libraries.
 
 That being said, there are a few downsides that you should be aware of. JSON only supports a limited set of primitive data types, such as strings, numbers, booleans, arrays, null, objects and nested combinations of these types. 
 
 There may be occasions when you might want to store things like `datetime` objects or `Pydantic` models. As such your code will have to do additional work to convert these objects into JSON seriablizable formats, i.e. calling `datetime.isoformat().` or `BaseModel.model_dump()`.
 
-```py title="Example When Passing Datetime Objects as Callback Kwargs"
+```py title="Example When Passing Datetime Objects as Callback Kwargs" hl_lines="10 31"
 from datetime import datetime, timedelta
 
 from taskshed.datastores import InMemoryDataStore

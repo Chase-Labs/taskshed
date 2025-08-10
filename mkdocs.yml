@@ -1,34 +1,61 @@
+# -------------------------------------------------------------------------------- project info
 site_name: TaskShed
-site_url: https://sitename.example
+site_description: Asynchronous & persistant job scheduler for Python.
+site_url: https://taskshed.chaselabs.dev   # Update when domain is live
+repo_url: https://github.com/Chase-Labs/taskshed
+repo_name: Chase-Labs/taskshed
+
+# -------------------------------------------------------------------------------- theme config
 theme:
   name: material
   logo: assets/logo.png
   favicon: assets/favicon.ico
   features:
-    - navigation.footer
-    - content.code.copy
-  palette: 
+    - navigation.top            # Back-to-top button
+    - navigation.footer         # Footer nav links
+    - navigation.instant        # Faster page transitions
+    - navigation.sections       # Group pages into sections
+    - navigation.expand         # Expand all sections by default
+    - content.code.copy         # Copy button for code blocks
+    - search.suggest            # Search suggestions
+    - search.highlight          # Highlight search results
+    
+  palette:
     # Dark Mode
     - scheme: slate
       toggle:
         icon: material/weather-sunny
-        name: Dark mode
+        name: Light Mode
       primary: green
       accent: deep purple
-    
+
     # Light Mode
     - scheme: default
       toggle:
         icon: material/weather-night
-        name: Light mode
+        name: Dark Mode
       primary: blue
       accent: deep orange
-    
+
+  icon:
+    repo: fontawesome/brands/github
+
+# -------------------------------------------------------------------------------- navigation
+nav:
+  - Home: index.md
+  - Key Concepts: key-concepts.md
+  - Schedulers: schedulers.md
+  - Datastores: datastores.md
+  - Workers: workers.md
+
+# -------------------------------------------------------------------------------- markdown extensions
 markdown_extensions:
+  # Styling & attributes
   - attr_list
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - pymdownx.details
+
+  # Code highlighting & tabs
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -42,10 +69,20 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
-  - admonition
-  - pymdownx.details
 
+  # Emojis
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# -------------------------------------------------------------------------------- plugins
+plugins:
+  - search
+
+# -------------------------------------------------------------------------------- extra configs
 extra:
   social:
     - icon: simple/github
       link: https://github.com/Chase-Labs/taskshed
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/taskshed

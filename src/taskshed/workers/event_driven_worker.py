@@ -11,10 +11,6 @@ T = TypeVar("T")
 
 
 class EventDrivenWorker(BaseWorker):
-    """
-    Worker that schedules tasks to run in the asyncio event loop.
-    """
-
     def __init__(
         self,
         callback_map: dict[str, Callable[..., Awaitable[T]]],
