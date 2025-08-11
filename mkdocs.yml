@@ -21,6 +21,15 @@ theme:
     - search.highlight          # Highlight search results
     
   palette:
+    
+    # Light Mode
+    - scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Dark Mode
+      primary: blue
+      accent: deep orange
+
     # Dark Mode
     - scheme: slate
       toggle:
@@ -29,13 +38,6 @@ theme:
       primary: green
       accent: deep purple
 
-    # Light Mode
-    - scheme: default
-      toggle:
-        icon: material/weather-night
-        name: Dark Mode
-      primary: blue
-      accent: deep orange
 
   icon:
     repo: fontawesome/brands/github

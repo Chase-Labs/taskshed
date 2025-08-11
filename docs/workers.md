@@ -27,14 +27,17 @@ The **EventDrivenWorker** achieves the lowest _possible task execution latency_ 
 
 However, it must be _notified whenever tasks are added, removed, or rescheduled in the datastore_. In TaskShed, the **Scheduler** takes care of these notifications, so an **EventDrivenWorker** is typically passed directly to the scheduler when it’s created.
 
-``` py title="Passing EventDrivenWorker to the AsyncScheduler" hl_lines="8"
+``` py title="Passing EventDrivenWorker to the AsyncScheduler" hl_lines="11"
 from taskshed.datastores import InMemoryDataStore
 from taskshed.schedulers import AsyncScheduler
 from taskshed.workers import EventDrivenWorker
 
-
 datastore = InMemoryDataStore()
-worker = EventDrivenWorker(callback_map={"callback": callback}, datastore=datastore)
+worker = EventDrivenWorker(
+    callback_map={"callback": callback},
+    datastore=datastore,
+)
+
 scheduler = AsyncScheduler(datastore=datastore, worker=worker)
 ```
 
@@ -115,7 +118,10 @@ datastore = RedisDataStore(
         ssl=True,
     )
 )
-worker = PollingWorker(callback_map={"say_hello": say_hello}, datastore=datastore)
+worker = PollingWorker(
+    callback_map={"say_hello": say_hello},
+    datastore=datastore,
+)
 
 
 if __name__ == "__main__":
