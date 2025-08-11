@@ -46,6 +46,7 @@ theme:
 nav:
   - Home: index.md
   - Key Concepts: key-concepts.md
+  - Benchmarks: benchmarks.md
   - Schedulers: schedulers.md
   - Datastores: datastores.md
   - Workers: workers.md
