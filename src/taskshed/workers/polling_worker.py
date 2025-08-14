@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 class PollingWorker(BaseWorker):
     """
-    A worker that polls a data store and runs scheduled tasks.
+    A worker that polls a datastore at a fixed interval to run tasks.
     """
 
     def __init__(
@@ -22,6 +22,16 @@ class PollingWorker(BaseWorker):
         datastore: DataStore,
         polling_interval: timedelta = timedelta(seconds=3),
     ):
+        """
+        Initializes the PollingWorker.
+
+        Args:
+            callback_map: A mapping of string names to awaitable callback
+                functions.
+            datastore: The datastore instance for fetching tasks.
+            polling_interval: The interval at which the worker should poll
+                the datastore for due tasks.
+        """
         super().__init__(callback_map, datastore)
         self._polling_interval = polling_interval
 
@@ -89,6 +99,13 @@ class PollingWorker(BaseWorker):
     # ------------------------------------------------------------------------------ public methods
 
     async def start(self):
+        """
+        Initializes the worker and starts the polling loop.
+
+        This method starts the datastore connection, captures the running event
+        loop, creates a lock, and kicks off the first task processing cycle,
+        which will then schedule subsequent polls.
+        """
         await self._datastore.start()
 
         if not self._event_loop:
@@ -103,6 +120,13 @@ class PollingWorker(BaseWorker):
         await self._process_due_tasks()
 
     async def shutdown(self):
+        """
+        Gracefully shuts down the worker.
+
+        This method cancels the scheduled polling timer, waits for any
+        currently running tasks to complete, and closes the datastore
+        connection.
+        """
         if self._timer_handle:
             self._timer_handle.cancel()
         if self._current_tasks:
@@ -112,6 +136,12 @@ class PollingWorker(BaseWorker):
         await self._datastore.shutdown()
 
     async def update_schedule(self):
+        """
+        Schedules the next poll.
+
+        This method sets a timer to call `_process_due_tasks` after the
+        configured `_polling_interval` has elapsed.
+        """
         if self._timer_handle:
             self._timer_handle.cancel()
         # Event loop provides mechanisms to schedule callback functions to

@@ -12,16 +12,26 @@ T = TypeVar("T")
 
 class AsyncScheduler:
     """
-    An asynchronous task scheduler using an asyncio event loop.
+    An asynchronous scheduler for managing and scheduling tasks.
 
-    The scheduler stores tasks via a task store and uses an executor to run them.
-    It manages periodic or one-time tasks, waking up to execute due tasks and
-    rescheduling itself based on the next task's run_type.
+    This class provides a high-level API for adding, removing, fetching,
+    and updating tasks. It interacts with a specified datastore to persist
+    task information and can notify an `EventDrivenWorker` of schedule
+    changes.
     """
 
     def __init__(
         self, datastore: DataStore, *, worker: EventDrivenWorker | None = None
     ):
+        """
+        Initializes the AsyncScheduler.
+
+        Args:
+            datastore: The datastore instance for storing tasks.
+            worker: An optional `EventDrivenWorker` to notify of
+                schedule changes. This is required for event-driven
+                execution but not for polling-based workers.
+        """
         self._datastore = datastore
         self._worker = worker
 
@@ -41,18 +51,25 @@ class AsyncScheduler:
         replace_existing: bool = True,
     ):
         """
-        Schedules a single task.
+        Schedules a single task to be executed.
 
         Args:
-            callback (`str`): The name of the callback function to execute.
-            run_at (`datetime | None`): The time at which the task should run. Defaults to now if not provided.
-            kwargs (`dict[str, T] | None`): A dictionary of keyword arguments to pass to the callback. Defaults to an empty dictionary.
-            run_type (`Literal["once", "recurring"]`): Specifies whether the task is a one-time or recurring task. Defaults to "once".
-            interval (`timedelta | None`): The interval for recurring tasks. Required if `run_type` is "recurring".
-            task_id (`str | None`): A unique identifier for the task. A random ID is generated if not provided.
-            group_id (`str | None`): An optional identifier to group related tasks.
-            paused (`bool`): If True, the task will be scheduled but not executed until resumed. Defaults to False.
-            replace_existing (`bool`): If True, replaces an existing task with the same ID. Defaults to True.
+            callback: The name of the callback function to execute. This name
+                must exist in the worker's `callback_map`.
+            run_at: The datetime for the task's first execution. Defaults to
+                the current time in UTC if not provided.
+            kwargs: A dictionary of keyword arguments to pass to the callback.
+            run_type: Specifies if the task is a one-time ('once') or
+                'recurring' task.
+            interval: The `timedelta` between executions for recurring tasks.
+                Required if `run_type` is "recurring".
+            task_id: A unique identifier for the task. A UUID is generated
+                if not provided.
+            group_id: An optional identifier to group related tasks.
+            paused: If True, the task is scheduled but will not be executed
+                until resumed.
+            replace_existing: If True, an existing task with the same
+                `task_id` will be overwritten.
         """
         task = Task(
             callback=callback,
@@ -69,11 +86,12 @@ class AsyncScheduler:
 
     async def add_tasks(self, tasks: Iterable[Task], *, replace_existing: bool = True):
         """
-        Schedules multiple tasks.
+        Schedules multiple tasks in a single transaction.
 
         Args:
-            tasks (`Iterable[Task]`): An iterable of tasks to schedule.
-            replace_existing (`bool`): If True, replaces existing tasks with the same IDs.
+            tasks: An iterable of `Task` objects to schedule.
+            replace_existing: If True, existing tasks with the same IDs
+                will be overwritten.
         """
         await self._datastore.add_tasks(tasks, replace_existing=replace_existing)
         await self._notify_worker()
@@ -85,14 +103,17 @@ class AsyncScheduler:
         group_id: str | None = None,
     ) -> list[Task]:
         """
-        Fetches tasks by their IDs or all tasks in a specific group.
+        Fetches tasks by their IDs or group ID.
 
         Args:
-            task_ids (`Iterable[str]` | None): A list of task IDs to fetch.
-            group_id (`str` | None): The ID of the task group to fetch all tasks from.
+            task_ids: An iterable of task IDs to fetch.
+            group_id: The ID of the task group to fetch.
 
         Returns:
-            list[Task]: A list of tasks matching the criteria.
+            A list of `Task` objects matching the specified criteria.
+
+        Raises:
+            ValueError: If neither `task_ids` nor `group_id` is provided.
         """
         if not task_ids and not group_id:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
@@ -108,11 +129,16 @@ class AsyncScheduler:
         group_id: str | None = None,
     ):
         """
-        Pauses tasks. Paused tasks will not be executed until resumed.
+        Pauses the execution of specified tasks.
+
+        Paused tasks will not be executed by workers until they are resumed.
 
         Args:
-            task_ids (`Iterable[str]` | None): A list of task IDs to pause.
-            group_id (`str` | None): The ID of the task group to pause all tasks in.
+            task_ids: An iterable of task IDs to pause.
+            group_id: The ID of the task group to pause.
+
+        Raises:
+            ValueError: If neither `task_ids` nor `group_id` is provided.
         """
         if not task_ids and not group_id:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
@@ -131,11 +157,14 @@ class AsyncScheduler:
         group_id: str | None = None,
     ):
         """
-        Removes tasks by their IDs or all tasks in a specific group.
+        Removes tasks from the datastore permanently.
 
         Args:
-            task_ids (`Iterable[str]` | None): A list of task IDs to remove.
-            group_id (`str | None`): The ID of the task group to remove all tasks from.
+            task_ids: An iterable of task IDs to remove.
+            group_id: The ID of the task group to remove.
+
+        Raises:
+            ValueError: If neither `task_ids` nor `group_id` is provided.
         """
         if not task_ids and not group_id:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
@@ -154,11 +183,17 @@ class AsyncScheduler:
         group_id: str | None = None,
     ):
         """
-        Resumes paused tasks. Resumed tasks will be executed according to their schedule.
+        Resumes the execution of paused tasks.
+
+        Resumed tasks will be eligible for execution by workers according to
+        their schedule.
 
         Args:
-            task_ids (`Iterable[str]` | None): A list of task IDs to resume.
-            group_id (`str` | None): The ID of the task group to resume all tasks in.
+            task_ids: An iterable of task IDs to resume.
+            group_id: The ID of the task group to resume.
+
+        Raises:
+            ValueError: If neither `task_ids` nor `group_id` is provided.
         """
         if not task_ids and not group_id:
             raise ValueError("Must specify either a list of Task IDs or a group ID.")
@@ -171,13 +206,26 @@ class AsyncScheduler:
         await self._notify_worker()
 
     async def update_execution_times(self, *, tasks: Iterable[TaskExecutionTime]):
+        """
+        Updates the execution time for one or more tasks.
+
+        Args:
+            tasks: An iterable of `TaskExecutionTime` objects, each
+                specifying a `task_id` and a new `run_at` datetime.
+        """
         await self._datastore.update_execution_times(tasks)
         await self._notify_worker()
 
     async def shutdown(self):
+        """
+        Shuts down the scheduler and closes datastore connections.
+        """
         await self._datastore.shutdown()
 
     async def start(self):
+        """
+        Starts the scheduler and initializes datastore connections.
+        """
         await self._datastore.start()
 
     # ------------------------------------------------------------------------------ private methods

@@ -17,6 +17,20 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 class MySQLConfig:
     """
     Configuration for connecting to a MySQL database.
+
+    Attributes:
+        host: The database server host address.
+        port: The connection port number.
+        user: The username for authentication.
+        password: The password for authentication. Can be None.
+        db: The name of the database to connect to.
+        connect_timeout: The timeout in seconds for establishing a connection.
+        ssl: SSL configuration for a secure connection. Can be a boolean to
+            enable/disable or an `SSLContext` object for advanced settings.
+        unix_socket: The path to a Unix socket file for the connection, if applicable.
+        auth_plugin: The authentication plugin to use (e.g., 'mysql_native_password').
+        server_public_key: The server's public key, used for certain
+            authentication methods like 'caching_sha2_password'.
     """
 
     host: str = "localhost"

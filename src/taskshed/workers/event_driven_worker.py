@@ -11,11 +11,25 @@ T = TypeVar("T")
 
 
 class EventDrivenWorker(BaseWorker):
+    """
+    A worker that executes tasks by setting a timer to wake up exactly
+    when the next task is due. It relies on notifications from a scheduler
+    to be aware of newly added or modified tasks.
+    """
+
     def __init__(
         self,
         callback_map: dict[str, Callable[..., Awaitable[T]]],
         datastore: DataStore,
     ):
+        """
+        Initializes the EventDrivenWorker.
+
+        Args:
+            callback_map: A mapping of string names to awaitable callback
+                functions.
+            datastore: The datastore instance for fetching tasks.
+        """
         super().__init__(callback_map, datastore)
 
         self._current_tasks: set[asyncio.Task] = set()
@@ -95,6 +109,13 @@ class EventDrivenWorker(BaseWorker):
     # ------------------------------------------------------------------------------ public methods
 
     async def start(self):
+        """
+        Initializes the worker and starts its operation.
+
+        This method starts the datastore connection, captures the running event
+        loop, creates a lock, and performs an initial check for any tasks that
+        may have become due while the worker was offline.
+        """
         await self._datastore.start()
 
         if not self._event_loop:
@@ -109,6 +130,13 @@ class EventDrivenWorker(BaseWorker):
         await self._process_due_tasks()
 
     async def shutdown(self):
+        """
+        Gracefully shuts down the worker.
+
+        This method cancels any scheduled wakeup timer, waits for any
+        currently running tasks to complete, and closes the datastore
+        connection.
+        """
         self._cancel_timer()
         if self._current_tasks:
             await asyncio.wait(
@@ -117,6 +145,14 @@ class EventDrivenWorker(BaseWorker):
         await self._datastore.shutdown()
 
     async def update_schedule(self, run_at: datetime | None = None):
+        """
+        Sets or updates the timer for the next task wakeup.
+
+        Args:
+            run_at: An optional `datetime` hint for a potential next wakeup
+                time. If not provided, the method will query the datastore
+                for the next scheduled task.
+        """
         if run_at:
             if self._next_wakeup and self._next_wakeup < run_at:
                 return

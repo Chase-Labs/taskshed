@@ -12,6 +12,20 @@ from taskshed.models.task_models import Task, TaskExecutionTime
 
 @dataclass(frozen=True, kw_only=True)
 class RedisConfig:
+    """
+    Configuration for connecting to a Redis server.
+
+    Attributes:
+        host: The Redis server host address.
+        port: The connection port number.
+        username: The username for authentication, if required.
+        password: The password for authentication, if required.
+        unix_socket_path: The path to a Unix socket file for the connection,
+            used for local connections instead of host and port.
+        ssl: A boolean flag to enable or disable SSL/TLS for a secure
+            connection.
+    """
+
     host: str = "localhost"
     port: int = 6379
     username: str | None = None
