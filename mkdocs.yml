@@ -14,7 +14,7 @@ theme:
     - navigation.top            # Back-to-top button
     - navigation.footer         # Footer nav links
     - navigation.instant        # Faster page transitions
-    - navigation.sections       # Group pages into sections
+    # - navigation.sections       # Group pages into sections
     - navigation.expand         # Expand all sections by default
     - content.code.copy         # Copy button for code blocks
     - search.suggest            # Search suggestions
@@ -44,9 +44,10 @@ theme:
 
 # -------------------------------------------------------------------------------- navigation
 nav:
-  - Home: index.md
-  - Key Concepts: key-concepts.md
-  - Benchmarks: benchmarks.md
+  - Getting Started: 
+    - Introduction: index.md
+    - Benchmarks: benchmarks.md
+    - Key Concepts: key-concepts.md
   - Schedulers: schedulers.md
   - Datastores: datastores.md
   - Workers: workers.md
