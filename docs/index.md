@@ -1,10 +1,10 @@
 # Introduction
 
-TaskShed is a high-performance, asynchronous, ready for production task scheduling framework.
+TaskShed is a high-performance, asynchronous, ready for production job scheduling framework.
 
 The key features are:
 
-* **Fast**: TaskShed has an extremely [low latency, overhead and can execute several thousands tasks a second](benchmarks.md).
+* **Fast**: TaskShed has an extremely [low latency, overhead and can execute several thousands jobs a second](benchmarks.md).
 * **Distributed**: TaskShed has the capacity to spawn several workers and schedules across many machines, while also providing support for monolinth architectures.
 * **Persistant**: Jobs are stored in database, meaning that jobs won't get dropped on shutdown. TaskShed currently supports Redis and MySQL.
 * **Easy**: TaskShed is straightforward to run. 
@@ -40,12 +40,12 @@ from taskshed.schedulers import AsyncScheduler
 from taskshed.workers import EventDrivenWorker
 
 
-async def foo():
-    print("\nHello from the future! 👋")
+async def say_hello(name: str):
+    print(f"Hello, {name}!")
 
 
 datastore = InMemoryDataStore()
-worker = EventDrivenWorker(callback_map={"foo": foo}, datastore=datastore)
+worker = EventDrivenWorker(callback_map={"say_hello": say_hello}, datastore=datastore)
 scheduler = AsyncScheduler(datastore=datastore, worker=worker)
 
 
@@ -53,8 +53,9 @@ async def main():
     await scheduler.start()
     await worker.start()
     await scheduler.add_task(
-        callback="foo",
+        callback="say_hello",
         run_at=datetime.now() + timedelta(seconds=3),
+        kwargs={"name": "World"},
     )
 
 
