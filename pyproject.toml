@@ -6,11 +6,11 @@ build-backend = "setuptools.build_meta"
 # -------------------------------------------------------------------------------- project metadata
 [project]
 name = "taskshed"
-version = "0.5.0"
+version = "0.7.0"
 authors = [
   { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
 ]
-description = "A high-performant, asynchronous and persistent scheduling library written in Python."
+description = "A high-performance, asynchronous, ready for production task scheduling framework written in Python."
 readme = "README.md"
 requires-python = ">=3.8"
 keywords = ["scheduling", "scheduler", "tasks", "queue", "redis", "mysql"]
