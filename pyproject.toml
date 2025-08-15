@@ -13,7 +13,23 @@ authors = [
 description = "A high-performance, asynchronous, ready for production task scheduling framework written in Python."
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["scheduling", "scheduler", "tasks", "queue", "redis", "mysql"]
+keywords = [
+    "task scheduling",
+    "job scheduling",
+    "scheduler",
+    "cron",
+    "background jobs",
+    "background tasks",
+    "periodic tasks",
+    "recurring tasks",
+    "asyncio",
+    "asynchronous",
+    "distributed",
+    "worker",
+    "queue",
+    "redis",
+    "mysql"
+]
 license = { text = "MIT" }
 classifiers = [
   "Development Status :: 4 - Beta",
