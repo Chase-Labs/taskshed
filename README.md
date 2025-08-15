@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
 # Documentation 📚
 
-Coming soon! 🚧
+Coming very soon! 🚧
 
 # Contributing 🤝
 
