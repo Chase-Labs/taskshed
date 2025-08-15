@@ -1,10 +1,10 @@
 # Datastores
 
-Datastores are the single source of truth for scheduled jobs. TaskShed currently ships with three datastore backends:
+Datastores are the single source of truth for scheduled tasks. TaskShed currently ships with three datastore backends:
 
-* **In Memory**: Keeps jobs in Python data structures. It's fast and simple; useful for prototyping and unit tests, but does not have persistence, and probably shouldn't be used in production.
+* **In Memory**: Keeps tasks in Python data structures. It's fast and simple; useful for prototyping and unit tests, but does not have persistence, and probably shouldn't be used in production.
 * **MySQL**: Uses the awesome [aiomysql](https://github.com/aio-libs/aiomysql) library to create a connection pool to a MySQL server, and asynchronously executes commands.
-* **Redis**: Uses the equally awesome [redis-py](https://github.com/redis/redis-py) interface to the Redis key-value store using a Sorted Set for scheduling, Hashes for job payloads and Sets for groups.
+* **Redis**: Uses the equally awesome [redis-py](https://github.com/redis/redis-py) interface to the Redis key-value store using a Sorted Set for scheduling, Hashes for task payloads and Sets for groups.
 
 ## Install
 
@@ -24,7 +24,7 @@ In order to levearage a persistant datastore you'll need to install the addition
 
 ## Serialization
 
-Serialization is the process of converting data into a format that can be stored and reconstructed later. TaskShed serializes job payloads (the `kwargs` field) as **JSON**, which is human-readable and widely supported.
+Serialization is the process of converting data into a format that can be stored and reconstructed later. TaskShed serializes task payloads (the `kwargs` field) as **JSON**, which is human-readable and widely supported.
 
 That being said, there are a few downsides that you should be aware of. JSON only supports a limited set of primitive data types, such as strings, numbers, booleans, arrays, null, objects and nested combinations of these types. 
 
@@ -40,7 +40,7 @@ from taskshed.schedulers import AsyncScheduler
 from taskshed.workers import EventDrivenWorker
 
 
-async def calculate_job_latency(run_at: str):
+async def calculate_task_latency(run_at: str):
     current_time = datetime.now()
     scheduled_time = datetime.fromisoformat(run_at)
     latency = current_time - scheduled_time
@@ -53,7 +53,7 @@ async def calculate_job_latency(run_at: str):
 
 datastore = InMemoryDataStore()
 worker = EventDrivenWorker(
-    callback_map={"calculate_job_latency": calculate_job_latency},
+    callback_map={"calculate_task_latency": calculate_task_latency},
     datastore=datastore,
 )
 scheduler = AsyncScheduler(datastore=datastore, worker=worker)
@@ -66,7 +66,7 @@ async def main():
     run_at = datetime.now() + timedelta(seconds=1)
 
     await scheduler.add_task(
-        callback="calculate_job_latency",
+        callback="calculate_task_latency",
         run_at=run_at,
         kwargs={"run_at": run_at.isoformat()},
     )

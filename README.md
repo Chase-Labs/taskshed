@@ -1,12 +1,12 @@
 # TaskShed 🛖
 
-TaskShed is a high-performance, asynchronous, ready-for-production job scheduling framework.
+TaskShed is a high-performance, asynchronous, ready for production job scheduling framework.
 
 The key features are:
 
-* **Fast**: TaskShed has a very low latency, overhead and can execute several thousands jobs a second.
+* **Fast**: TaskShed has a very low latency, overhead and can execute several thousands tasks a second.
 * **Distributed**: TaskShed has the capacity to spawn several workers and schedules across many machines, while also providing optimisation for monolinth architectures.
-* **Persistant**: Jobs are stored in database, meaning that jobs won't get dropped on shutdown. TaskShed currently supports Redis and MySQL.
+* **Persistant**: Tasks are stored in database, meaning that they won't get dropped on shutdown. TaskShed currently supports Redis and MySQL.
 * **Easy**: TaskShed's modular architecture is straightforward and easy to set-up, and works in any asynchronous environement.
 
 
@@ -31,7 +31,7 @@ pip install "taskshed[mysql]"
 
 # Quick Start 🏁
 
-Here's a simple example of scheduling a job to run in 5 seconds.
+Here's a simple example of scheduling a task to run in 5 seconds.
 
 ```py
 from datetime import datetime, timedelta
