@@ -7,7 +7,7 @@ The key features are:
 * **Fast**: TaskShed has a low latency, overhead and can execute several thousands jobs a second.
 * **Distributed**: TaskShed has the capacity to spawn several workers and schedules across many machines, while also providing optimisation for monolinth architectures.
 * **Persistant**: Jobs are stored in database, meaning that jobs won't get dropped on shutdown. TaskShed currently supports Redis and MySQL.
-* **Easy**: TaskShed is straightforward and easy to set-up.
+* **Easy**: TaskShed's modular architecture is straightforward and easy to set-up, and works in any asynchronous environement.
 
 
 # Installation 🔧
