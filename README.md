@@ -4,10 +4,10 @@ TaskShed is a high-performance, asynchronous, ready-for-production job schedulin
 
 The key features are:
 
-* **Fast**: TaskShed has an extremely low latency, overhead and can execute several thousands jobs a second.
-* **Distributed**: TaskShed has the capacity to spawn several workers and schedules across many machines, while also providing support for monolinth architectures.
+* **Fast**: TaskShed has a low latency, overhead and can execute several thousands jobs a second.
+* **Distributed**: TaskShed has the capacity to spawn several workers and schedules across many machines, while also providing optimisation for monolinth architectures.
 * **Persistant**: Jobs are stored in database, meaning that jobs won't get dropped on shutdown. TaskShed currently supports Redis and MySQL.
-* **Easy**: TaskShed is straightforward to run. 
+* **Easy**: TaskShed is straightforward and easy to set-up.
 
 
 # Installation 🔧
