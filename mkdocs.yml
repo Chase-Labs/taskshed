@@ -1,8 +1,8 @@
 # -------------------------------------------------------------------------------- project info
 site_name: TaskShed
 site_description: A high-performance, asynchronous, ready for production job scheduling framework.
-site_url: https://chase-labs.github.io/taskshed
-repo_url: https://github.com/Chase-Labs/taskshed
+site_url: https://chase-labs.github.io/taskshed/
+repo_url: https://github.com/Chase-Labs/taskshed/
 repo_name: Chase-Labs/taskshed
 
 # -------------------------------------------------------------------------------- theme config
