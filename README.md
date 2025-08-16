@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
 # Documentation 📚
 
-Coming very soon! 🚧
+https://chase-labs.github.io/taskshed/
 
 # Contributing 🤝
 
