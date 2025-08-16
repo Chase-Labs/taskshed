@@ -18,12 +18,13 @@ Install the core package using pip:
 pip install taskshed
 ```
 
-To use persistent datastores like Redis or MySQL, you need to install the optional dependencies:
+TaskShed has no extra dependencies beyond its core framework. However, if you want **persistent task storage**, you’ll need to install one of the optional backends. TaskShed currently supports [Redis](https://redis.io/) and [MySQL](https://www.mysql.com/). You can install the appropriate driver using:
 
-```sh
+```shs
 pip install "taskshed[redis]"
 ```
 
+or
 
 ```sh
 pip install "taskshed[mysql]"
