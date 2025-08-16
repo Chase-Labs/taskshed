@@ -1,10 +1,12 @@
-# TaskShed 🛖
+# TaskShed
 
-TaskShed is a high-performance, asynchronous, ready for production job scheduling framework.
+A high-performance, asynchronous, ready for production job scheduling framework.
+
+TaskShed provides a simple API to schedule your Python coroutines for later execution. You can run tasks just once or on a recurring interval. The scheduler is dynamic, allowing you to add, update or remove tasks on the fly. Furthermore, by connecting to a persistent datastore, TaskShed ensures your tasks survive restarts and automatically catches up on any executions that were missed while the system was offline.
 
 The key features are:
 
-* **Fast**: TaskShed has a very low latency, overhead and can execute several thousands tasks a second.
+* **Fast**: TaskShed has a [very low latency, overhead and can execute several thousands tasks a second](https://chase-labs.github.io/taskshed/benchmarks/).
 * **Distributed**: TaskShed has the capacity to spawn several workers and schedules across many machines, while also providing optimisation for monolinth architectures.
 * **Persistant**: Tasks are stored in database, meaning that they won't get dropped on shutdown. TaskShed currently supports Redis and MySQL.
 * **Easy**: TaskShed's modular architecture is straightforward and easy to set-up, and works in any asynchronous environement.
