@@ -1,14 +1,10 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
-from functools import partial
-from typing import Awaitable, Callable, TypeVar
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task
 from taskshed.utils.errors import IncorrectCallbackNameError
-from taskshed.workers.base_worker import BaseWorker
-
-T = TypeVar("T")
+from taskshed.workers.base_worker import BaseWorker, Callback
 
 
 class PollingWorker(BaseWorker):
@@ -18,7 +14,7 @@ class PollingWorker(BaseWorker):
 
     def __init__(
         self,
-        callback_map: dict[str, Callable[..., Awaitable[T]]],
+        callback_map: dict[str, Callback],
         datastore: DataStore,
         polling_interval: timedelta = timedelta(seconds=3),
     ):
@@ -43,7 +39,7 @@ class PollingWorker(BaseWorker):
     # ------------------------------------------------------------------------------ private methods
 
     async def _process_due_tasks(self):
-        async with self._lock:
+        async with self._lock: # type: ignore
             while True:
                 # Retrieve tasks that are scheduled to run now or earlier
                 tasks = await self._datastore.fetch_due_tasks(
@@ -60,7 +56,7 @@ class PollingWorker(BaseWorker):
 
                     if task.run_type == "recurring":
                         # Reschedule recurring task for its next run based on interval
-                        task.run_at += task.interval
+                        task.run_at += task.interval # type: ignore - checked at dataclass level
                         interval_tasks.append(task)
 
                     elif task.run_type == "once":
@@ -82,11 +78,12 @@ class PollingWorker(BaseWorker):
 
         try:
             callback = self._callback_map[task.callback]
-        except KeyError:
+        except KeyError as e:
             raise IncorrectCallbackNameError(
-                f"Callback '{task.callback}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
-            )
-
+                f"Callback '{task.callback}' not found in callback map. "
+                f"Available callbacks: {list(self._callback_map.keys())}"
+            ) from e
+        
         _task = self._event_loop.create_task(callback(**task.kwargs))
 
         # Add future to set of tasks currently running.
@@ -135,13 +132,16 @@ class PollingWorker(BaseWorker):
             )
         await self._datastore.shutdown()
 
-    async def update_schedule(self):
+    async def update_schedule(self, run_at: datetime | None = None):
         """
         Schedules the next poll.
 
         This method sets a timer to call `_process_due_tasks` after the
         configured `_polling_interval` has elapsed.
         """
+        if self._event_loop is None:
+            raise RuntimeError("Event loop is not running. Call start() first.")
+
         if self._timer_handle:
             self._timer_handle.cancel()
         # Event loop provides mechanisms to schedule callback functions to
@@ -149,5 +149,7 @@ class PollingWorker(BaseWorker):
         # An instance of asyncio.TimerHandle is returned which can be used to cancel the callback.
         self._timer_handle = self._event_loop.call_later(
             delay=self._polling_interval.total_seconds(),
-            callback=partial(self._event_loop.create_task, self._process_due_tasks()),
+            callback=lambda: self._event_loop.create_task( # type: ignore
+                self._process_due_tasks()
+            ),
         )

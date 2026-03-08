@@ -6,13 +6,13 @@ build-backend = "setuptools.build_meta"
 # -------------------------------------------------------------------------------- project metadata
 [project]
 name = "taskshed"
-version = "0.7.0"
+version = "0.8.0"
 authors = [
   { name = "Jacob Strauss", email = "jacob@meetchase.ai" }
 ]
 description = "A high-performance, asynchronous, ready for production task scheduling framework written in Python."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 keywords = [
     "task scheduling",
     "job scheduling",
@@ -38,12 +38,11 @@ classifiers = [
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13"
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14"
 ]
 
 # -------------------------------------------------------------------------------- urls
@@ -55,7 +54,7 @@ classifiers = [
 # -------------------------------------------------------------------------------- optional dependencies
 [project.optional-dependencies]
 mysql = [
-    "aiomysql>=0.2.0",
+    "aiomysql>=0.3.2",
 ]
 redis = [
     "redis>=6.0.0",

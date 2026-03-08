@@ -115,12 +115,13 @@ class AsyncScheduler:
         Raises:
             ValueError: If neither `task_ids` nor `group_id` is provided.
         """
-        if not task_ids and not group_id:
-            raise ValueError("Must specify either a list of Task IDs or a group ID.")
         if task_ids:
-            tasks = await self._datastore.fetch_tasks(task_ids)
-            return tasks
-        return await self._datastore.fetch_group_tasks(group_id)
+            return await self._datastore.fetch_tasks(task_ids)
+        
+        if group_id:
+            return await self._datastore.fetch_group_tasks(group_id)
+        
+        raise ValueError("Must specify either a list of Task IDs or a group ID.")
 
     async def pause_tasks(
         self,
@@ -221,12 +222,16 @@ class AsyncScheduler:
         Shuts down the scheduler and closes datastore connections.
         """
         await self._datastore.shutdown()
+        if self._worker:
+            await self._worker.shutdown()
 
     async def start(self):
         """
         Starts the scheduler and initializes datastore connections.
         """
         await self._datastore.start()
+        if self._worker:
+            await self._worker.start()
 
     # ------------------------------------------------------------------------------ private methods
 

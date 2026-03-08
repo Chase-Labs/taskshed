@@ -1,13 +1,10 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import Awaitable, Callable, TypeVar
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task
 from taskshed.utils.errors import IncorrectCallbackNameError
-from taskshed.workers.base_worker import BaseWorker
-
-T = TypeVar("T")
+from taskshed.workers.base_worker import BaseWorker, Callback
 
 
 class EventDrivenWorker(BaseWorker):
@@ -19,7 +16,7 @@ class EventDrivenWorker(BaseWorker):
 
     def __init__(
         self,
-        callback_map: dict[str, Callable[..., Awaitable[T]]],
+        callback_map: dict[str, Callback],
         datastore: DataStore,
     ):
         """
@@ -46,8 +43,8 @@ class EventDrivenWorker(BaseWorker):
             self._timer_handle = None
             self._next_wakeup = None
 
-    async def _process_due_tasks(self):
-        async with self._lock:
+    async def _process_due_tasks(self):        
+        async with self._lock: # type: ignore
             while True:
                 # Retrieve tasks that are scheduled to run now or earlier
                 tasks = await self._datastore.fetch_due_tasks(
@@ -65,7 +62,7 @@ class EventDrivenWorker(BaseWorker):
 
                     if task.run_type == "recurring":
                         # Reschedule recurring task for its next run based on interval
-                        task.run_at = task.run_at + task.interval
+                        task.run_at = task.run_at + task.interval # type: ignore - checked at dataclass level
                         interval_tasks.append(task)
 
                     elif task.run_type == "once":
@@ -82,9 +79,6 @@ class EventDrivenWorker(BaseWorker):
         self._cancel_timer()
         await self.update_schedule()
 
-    def _process_due_tasks_helper(self):
-        self._event_loop.create_task(self._process_due_tasks())
-
     def _run_task(self, task: Task):
         # Takes the coroutine and schedules it for execution on the event loop.
         if not self._event_loop:
@@ -92,10 +86,11 @@ class EventDrivenWorker(BaseWorker):
 
         try:
             callback = self._callback_map[task.callback]
-        except KeyError:
+        except KeyError as e:
             raise IncorrectCallbackNameError(
-                f"Callback '{task.callback}' not found in callback map. Available callbacks: {list(self._callback_map.keys())}"
-            )
+                f"Callback '{task.callback}' not found in callback map. "
+                f"Available callbacks: {list(self._callback_map.keys())}"
+            ) from e
 
         _task = self._event_loop.create_task(callback(**task.kwargs))
 
@@ -153,6 +148,9 @@ class EventDrivenWorker(BaseWorker):
                 time. If not provided, the method will query the datastore
                 for the next scheduled task.
         """
+        if self._event_loop is None:
+            raise RuntimeError("Event loop is not running. Call start() first.")
+
         if run_at:
             if self._next_wakeup and self._next_wakeup < run_at:
                 return
@@ -178,7 +176,7 @@ class EventDrivenWorker(BaseWorker):
             delay = max((wakeup - datetime.now(tz=timezone.utc)).total_seconds(), 0)
             self._timer_handle = self._event_loop.call_later(
                 delay=delay,
-                callback=lambda: self._event_loop.create_task(
+                callback=lambda: self._event_loop.create_task( # type: ignore
                     self._process_due_tasks()
                 ),
             )

@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Literal, TypeVar
+from typing import Any, Literal
 from uuid import uuid4
-
-T = TypeVar("T")
 
 
 @dataclass(kw_only=True)
@@ -54,7 +52,7 @@ class Task:
     run_at: datetime
     run_type: Literal["once", "recurring"] = "once"
     task_id: str = field(default_factory=lambda: uuid4().hex)
-    kwargs: dict[str, T] = field(default_factory=dict)
+    kwargs: dict[str, Any] = field(default_factory=dict)
     interval: timedelta | None = None
     group_id: str | None = None
     paused: bool = False
@@ -65,6 +63,9 @@ class Task:
         self.run_at = self.run_at.astimezone(timezone.utc)
 
     def interval_seconds(self) -> float | None:
+        """
+        Returns the interval in seconds for recurring tasks, or None for one-time tasks.
+        """
         if self.interval:
             return self.interval.total_seconds()
         return None

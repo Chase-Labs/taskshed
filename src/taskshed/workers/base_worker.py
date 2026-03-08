@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Awaitable, Callable, TypeVar
+from typing import Any, Callable, Coroutine, TypeAlias
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task
 
-T = TypeVar("T")
-
+Callback: TypeAlias = Callable[..., Coroutine[Any, Any, Any]]
 
 class BaseWorker(ABC):
     """
@@ -19,7 +18,7 @@ class BaseWorker(ABC):
 
     def __init__(
         self,
-        callback_map: dict[str, Callable[..., Awaitable[T]]],
+        callback_map: dict[str, Callback],
         datastore: DataStore,
     ):
         """
@@ -34,6 +33,21 @@ class BaseWorker(ABC):
         self._callback_map = callback_map
         self._datastore = datastore
 
+    def add_callback(self, callback_name: str, callback: Callback) -> None:
+        """
+        Adds a new callback function to the worker's callback map.
+        
+        Args:
+            callback_name: The name to associate with the callback function.
+            callback: An awaitable function to be called when a task with the corresponding callback name is executed.
+        
+        Raises:
+            ValueError: If the callback name already exists in the callback map.
+        """
+        if callback_name in self._callback_map:
+            raise ValueError("Callback name already exists in the callback map.")
+        self._callback_map[callback_name] = callback
+
     @abstractmethod
     async def _process_due_tasks(self):
         """
@@ -44,7 +58,6 @@ class BaseWorker(ABC):
         run at or before the current time, execute them, and handle any
         rescheduling (for recurring tasks) or cleanup (for one-time tasks).
         """
-        pass
 
     @abstractmethod
     def _run_task(self, task: Task):
@@ -57,7 +70,6 @@ class BaseWorker(ABC):
         Args:
             task: The `Task` object to execute.
         """
-        pass
 
     @abstractmethod
     async def start(self):
@@ -68,7 +80,6 @@ class BaseWorker(ABC):
         datastore connections, and then start the main processing loop that
         finds and executes tasks.
         """
-        pass
 
     @abstractmethod
     async def shutdown(self):
@@ -79,7 +90,6 @@ class BaseWorker(ABC):
         running tasks to complete within a reasonable timeout, and clean up
         any resources, such as closing datastore connections.
         """
-        pass
 
     @abstractmethod
     async def update_schedule(self, run_at: datetime | None = None):
@@ -91,4 +101,3 @@ class BaseWorker(ABC):
                 This can be used by event-driven workers to avoid unnecessary
                 datastore queries when a new, earlier task is added.
         """
-        pass
