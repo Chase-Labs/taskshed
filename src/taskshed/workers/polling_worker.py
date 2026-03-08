@@ -91,7 +91,7 @@ class PollingWorker(BaseWorker):
 
         # Add a callback to be run when the future becomes done.
         # Remove task from pending set when it completes.
-        _task.add_done_callback(lambda t: self._current_tasks.discard(t))
+        _task.add_done_callback(self._current_tasks.discard)
 
     # ------------------------------------------------------------------------------ public methods
 
