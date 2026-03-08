@@ -58,7 +58,14 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
 
     await datastore.start()
     await datastore.remove_all_tasks()
-    worker = EventDrivenWorker(callback_map=callback_map, datastore=datastore)
+    worker = EventDrivenWorker(
+        callback_map={
+            "mock_callback": mock_callback,
+            "second_callback": second_callback,
+            "third_callback": third_callback,
+        },
+        datastore=datastore,
+    )
     await worker.start()
     scheduler_instance = AsyncScheduler(datastore=datastore, worker=worker)
 
@@ -66,7 +73,7 @@ async def scheduler(request) -> AsyncGenerator[AsyncScheduler, None]:
         yield scheduler_instance
     finally:
         await scheduler_instance.shutdown()
-        for callback in callback_map.values():
+        for callback in [mock_callback, second_callback, third_callback]:
             callback.reset_mock()
 
 
@@ -349,6 +356,49 @@ async def test_fetch_tasks_by_group_id(scheduler: AsyncScheduler):
 
     assert len(fetched) == len(group_tasks)
     assert all(task.group_id == group_id for task in fetched)
+
+
+@pytest.mark.asyncio
+async def test_add_callback(scheduler: AsyncScheduler):
+    new_callback = AsyncMock()
+
+    scheduler.add_callback("new_callback", new_callback)
+
+    assert "new_callback" in scheduler._worker._callback_map
+    assert scheduler._worker._callback_map["new_callback"] is new_callback
+
+
+@pytest.mark.asyncio
+async def test_add_callback_duplicate_raises(scheduler: AsyncScheduler):
+    new_callback = AsyncMock()
+
+    scheduler.add_callback("new_callback", new_callback)
+
+    with pytest.raises(ValueError):
+        scheduler.add_callback("new_callback", AsyncMock())
+
+
+def test_add_callback_no_worker_raises():
+    scheduler = AsyncScheduler(datastore=InMemoryDataStore())
+
+    with pytest.raises(RuntimeError):
+        scheduler.add_callback("new_callback", AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_add_callback_and_run(scheduler: AsyncScheduler):
+    new_callback = AsyncMock()
+    scheduler.add_callback("new_callback", new_callback)
+
+    await scheduler.add_task(
+        callback="new_callback",
+        run_at=datetime.now(timezone.utc),
+        kwargs={"some_kwarg": 42},
+    )
+
+    await asyncio.sleep(0.05)
+
+    new_callback.assert_called_once_with(some_kwarg=42)
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ from uuid import uuid4
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
 from taskshed.workers.event_driven_worker import EventDrivenWorker
+from taskshed.workers.base_worker import Callback
 
 T = TypeVar("T")
 
@@ -95,6 +96,22 @@ class AsyncScheduler:
         """
         await self._datastore.add_tasks(tasks, replace_existing=replace_existing)
         await self._notify_worker()
+
+    def add_callback(self, callback_name: str, callback: Callback) -> None:
+        """
+        Adds a new callback function to the worker's callback map.
+        
+        Args:
+            callback_name: The name to associate with the callback function.
+            callback: An awaitable function to be called when a task with the corresponding callback name is executed.
+        
+        Raises:
+            ValueError: If the callback name already exists in the callback map.
+        """
+        if self._worker is None:
+            raise RuntimeError("Cannot add callback when no worker is configured.")
+        
+        self._worker.add_callback(callback_name, callback)
 
     async def fetch_tasks(
         self,

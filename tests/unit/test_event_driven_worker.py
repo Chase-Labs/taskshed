@@ -48,3 +48,23 @@ async def test_run_date_task(worker: EventDrivenWorker):
 
     # After shutdown, no tasks should remain pending
     assert len(worker._current_tasks) == 0
+
+
+@pytest.mark.asyncio
+async def test_add_callback(worker: EventDrivenWorker):
+    new_callback = AsyncMock()
+
+    worker.add_callback("new_callback", new_callback)
+
+    assert "new_callback" in worker._callback_map
+    assert worker._callback_map["new_callback"] is new_callback
+
+
+@pytest.mark.asyncio
+async def test_add_callback_duplicate_raises(worker: EventDrivenWorker):
+    new_callback = AsyncMock()
+
+    worker.add_callback("new_callback", new_callback)
+
+    with pytest.raises(ValueError):
+        worker.add_callback("new_callback", AsyncMock())
