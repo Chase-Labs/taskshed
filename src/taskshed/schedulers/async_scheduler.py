@@ -35,6 +35,7 @@ class AsyncScheduler:
         """
         self._datastore = datastore
         self._worker = worker
+        self._running = False
 
     # ------------------------------------------------------------------------------ public methods
 
@@ -239,16 +240,17 @@ class AsyncScheduler:
         Shuts down the scheduler and closes datastore connections.
         """
         await self._datastore.shutdown()
-        if self._worker:
-            await self._worker.shutdown()
+        self._running = False
 
     async def start(self):
         """
         Starts the scheduler and initializes datastore connections.
         """
+        if self._running:
+            return  # Scheduler is already running
+        
         await self._datastore.start()
-        if self._worker:
-            await self._worker.start()
+        self._running = True
 
     # ------------------------------------------------------------------------------ private methods
 

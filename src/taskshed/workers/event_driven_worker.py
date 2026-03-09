@@ -29,6 +29,7 @@ class EventDrivenWorker(BaseWorker):
         """
         super().__init__(callback_map, datastore)
 
+        self._running = False
         self._current_tasks: set[asyncio.Task] = set()
         self._event_loop: asyncio.AbstractEventLoop | None = None
         self._lock: asyncio.Lock | None = None
@@ -111,6 +112,9 @@ class EventDrivenWorker(BaseWorker):
         loop, creates a lock, and performs an initial check for any tasks that
         may have become due while the worker was offline.
         """
+        if self._running:
+            return
+        
         await self._datastore.start()
 
         if not self._event_loop:
@@ -122,7 +126,9 @@ class EventDrivenWorker(BaseWorker):
             # hit a RuntimeError.
             self._lock = asyncio.Lock()
 
+        self._running = True
         await self._process_due_tasks()
+        
 
     async def shutdown(self):
         """
@@ -137,6 +143,7 @@ class EventDrivenWorker(BaseWorker):
             await asyncio.wait(
                 self._current_tasks, return_when=asyncio.ALL_COMPLETED, timeout=30
             )
+        self._running = False
         await self._datastore.shutdown()
 
     async def update_schedule(self, run_at: datetime | None = None):
