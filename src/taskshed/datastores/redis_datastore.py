@@ -7,7 +7,7 @@ from typing import Iterable
 from redis.asyncio import Redis
 
 from taskshed.datastores.base_datastore import DataStore
-from taskshed.models.task_models import Task, TaskExecutionTime
+from taskshed.models.task_models import Task, TaskExecutionTime, COMPACT_JSON_SEPARATORS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -80,7 +80,7 @@ class RedisDataStore(DataStore):
             "run_at": task.run_at.timestamp(),
             "paused": int(task.paused),
             "callback": task.callback,
-            "kwargs": json.dumps(task.kwargs),
+            "kwargs": json.dumps(task.kwargs, separators=COMPACT_JSON_SEPARATORS),
             "run_type": task.run_type,
             "interval": task.interval_seconds() if task.interval else "",
             "group_id": task.group_id if task.group_id is not None else "",

@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 import aiomysql
 
 from taskshed.datastores.base_datastore import DataStore
-from taskshed.models.task_models import Task, TaskExecutionTime
+from taskshed.models.task_models import Task, TaskExecutionTime, COMPACT_JSON_SEPARATORS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -54,7 +54,7 @@ class MySQLDataStore(DataStore):
         `run_at` bigint unsigned NOT NULL,
         `paused` tinyint NOT NULL DEFAULT '0',
         `callback` varchar(63) NOT NULL,
-        `kwargs` TEXT NOT NULL,
+        `kwargs` MEDIUMTEXT NOT NULL,
         `run_type` enum('once','recurring') NOT NULL,
         `interval` float DEFAULT NULL,
         `group_id` varchar(63) DEFAULT NULL,
@@ -250,7 +250,7 @@ class MySQLDataStore(DataStore):
                             self._convert_datetime(task.run_at),
                             task.paused,
                             task.callback,
-                            json.dumps(task.kwargs),
+                            json.dumps(task.kwargs, separators=COMPACT_JSON_SEPARATORS),
                             task.run_type,
                             task.interval_seconds(),
                             task.group_id,

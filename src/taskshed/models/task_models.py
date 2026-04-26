@@ -4,6 +4,10 @@ from typing import Any, Literal
 from uuid import uuid4
 
 
+# Define a constant for compact JSON separators to minimize whitespace in serialized data
+COMPACT_JSON_SEPARATORS = (",", ":")
+
+
 @dataclass(kw_only=True)
 class TaskExecutionTime:
     """
