@@ -44,6 +44,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14"
 ]
+dependencies = [
+    "aiomysql>=0.3.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "python-dotenv>=1.2.2",
+    "redis>=7.4.0",
+]
 
 # -------------------------------------------------------------------------------- urls
 [project.urls]

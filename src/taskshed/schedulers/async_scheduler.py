@@ -49,6 +49,7 @@ class AsyncScheduler:
         task_id: str | None = None,
         group_id: str | None = None,
         paused: bool = False,
+        coalesce: bool = True,
         *,
         replace_existing: bool = True,
     ):
@@ -70,6 +71,10 @@ class AsyncScheduler:
             group_id: An optional identifier to group related tasks.
             paused: If True, the task is scheduled but will not be executed
                 until resumed.
+            coalesce: For recurring tasks, whether missed intervals are
+                collapsed into a single catch-up execution (True, the default)
+                or fired one interval at a time (False). No effect on one-time
+                tasks.
             replace_existing: If True, an existing task with the same
                 `task_id` will be overwritten.
         """
@@ -82,6 +87,7 @@ class AsyncScheduler:
             task_id=task_id or uuid4().hex,
             group_id=group_id,
             paused=paused,
+            coalesce=coalesce,
         )
         await self._datastore.add_tasks((task,), replace_existing=replace_existing)
         await self._notify_worker(task.run_at)

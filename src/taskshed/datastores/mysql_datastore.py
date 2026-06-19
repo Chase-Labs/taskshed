@@ -58,6 +58,7 @@ class MySQLDataStore(DataStore):
         `run_type` enum('once','recurring') NOT NULL,
         `interval` float DEFAULT NULL,
         `group_id` varchar(63) DEFAULT NULL,
+        `coalesce` tinyint NOT NULL DEFAULT '1',
         PRIMARY KEY (`task_id`),
         UNIQUE KEY `task_id_UNIQUE` (`task_id`),
         KEY `idx_group_id` (`group_id`),
@@ -84,19 +85,20 @@ class MySQLDataStore(DataStore):
     """
 
     _INSERT_TASKS_WITHOUT_REPLACEMENT_QUERY = """
-    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
 
     _INSERT_TASKS_WITH_REPLACEMENT_QUERY = """
-    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS new
+    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) AS new
         ON DUPLICATE KEY UPDATE
             `run_at` = new.run_at,
             `callback` = new.callback,
             `kwargs` = new.kwargs,
             `paused` = new.paused,
-            `group_id` = new.group_id;
+            `group_id` = new.group_id,
+            `coalesce` = new.coalesce;
     """
 
     _SELECT_TASKS_QUERY = """
@@ -192,6 +194,7 @@ class MySQLDataStore(DataStore):
             run_type=row["run_type"],
             interval=interval,
             group_id=row["group_id"],
+            coalesce=bool(row["coalesce"]),
         )
 
     def _convert_datetime(self, dt: datetime) -> int:
@@ -254,6 +257,7 @@ class MySQLDataStore(DataStore):
                             task.run_type,
                             task.interval_seconds(),
                             task.group_id,
+                            int(task.coalesce),
                         )
                         for task in tasks
                     ),

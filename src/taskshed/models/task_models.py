@@ -50,6 +50,13 @@ class Task:
             allowing for bulk operations.
         paused: A flag to indicate if the task's execution is currently
             suspended.
+        coalesce: For recurring tasks, controls catch-up behaviour when the
+            task has fallen behind (e.g. the worker was offline across several
+            intervals). If ``True`` (the default), all missed intervals are
+            collapsed into a single execution and the task is fast-forwarded
+            to its next occurrence after the current time, so only the latest
+            missed run fires. If ``False``, each missed interval fires once as
+            the worker catches up. Has no effect on one-time tasks.
     """
 
     callback: str
@@ -60,6 +67,7 @@ class Task:
     interval: timedelta | None = None
     group_id: str | None = None
     paused: bool = False
+    coalesce: bool = True
 
     def __post_init__(self):
         if self.run_type == "recurring" and self.interval is None:

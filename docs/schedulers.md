@@ -59,6 +59,27 @@ await scheduler.add_task(
 
 In the above example, the `add()` coroutine is scheduled to run in 5 seconds, and then once every 10 seconds.
 
+### Coalescing Missed Runs
+
+If a worker falls behind a recurring task — for example, it was offline across several intervals — the task may have multiple "missed" runs queued up by the time the worker catches up.
+
+By default (`coalesce=True`), TaskShed **collapses all missed intervals into a single execution**: the task fires once and is then fast-forwarded to its next occurrence after the current time. This is the right behaviour for tasks where only the latest run matters (e.g. refreshing a cache or syncing state).
+
+Set `coalesce=False` to instead fire the task **once per missed interval** as the worker catches up. Use this when every scheduled run must execute, even retroactively.
+
+```py title="Disabling Coalescing" hl_lines="7"
+await scheduler.add_task(
+    callback="add",
+    run_at=datetime.now() + timedelta(seconds=5),
+    kwargs={"a": 1, "b": 2},
+    run_type="recurring",
+    interval=timedelta(seconds=10),
+    coalesce=False,
+)
+```
+
+Coalescing has no effect on one-time tasks, and a task that is on schedule (not behind) always simply advances by a single interval.
+
 You can also efficiently schedule multiple tasks at once using the `add_tasks()` method. Unlike the `add_task()` method, this method accepts an iterable of `Task` objects.
 
 ```py title="Scheduling Many Tasks" hl_lines="9-10"

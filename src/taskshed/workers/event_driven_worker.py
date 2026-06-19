@@ -48,9 +48,8 @@ class EventDrivenWorker(BaseWorker):
         async with self._lock: # type: ignore
             while True:
                 # Retrieve tasks that are scheduled to run now or earlier
-                tasks = await self._datastore.fetch_due_tasks(
-                    datetime.now(tz=timezone.utc)
-                )
+                now = datetime.now(tz=timezone.utc)
+                tasks = await self._datastore.fetch_due_tasks(now)
 
                 if not tasks:
                     # No further tasks to execute.
@@ -62,8 +61,9 @@ class EventDrivenWorker(BaseWorker):
                     self._run_task(task)
 
                     if task.run_type == "recurring":
-                        # Reschedule recurring task for its next run based on interval
-                        task.run_at = task.run_at + task.interval # type: ignore - checked at dataclass level
+                        # Reschedule recurring task for its next run. Coalescing
+                        # tasks fast-forward past all missed intervals in one step.
+                        task.run_at = self._next_run_at(task, now)
                         interval_tasks.append(task)
 
                     elif task.run_type == "once":

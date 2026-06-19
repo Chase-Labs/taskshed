@@ -33,6 +33,35 @@ class BaseWorker(ABC):
         self._callback_map = callback_map
         self._datastore = datastore
 
+    @staticmethod
+    def _next_run_at(task: Task, now: datetime) -> datetime:
+        """
+        Computes the next ``run_at`` for a recurring task.
+
+        When ``task.coalesce`` is True and the task has fallen behind, all
+        missed intervals are collapsed into a single step: the task fires once
+        and is fast-forwarded to its first occurrence strictly after ``now``,
+        so only the latest missed run fires. Otherwise the task advances by
+        exactly one interval, letting the worker catch up one interval per loop.
+
+        Args:
+            task: The recurring `Task` being rescheduled.
+            now: The reference time the worker used to fetch due tasks.
+
+        Returns:
+            The next scheduled execution time.
+        """
+        interval = task.interval  # type: ignore - recurring tasks always have an interval
+
+        if task.coalesce and task.run_at < now:
+            # Number of intervals to skip so that run_at lands strictly after
+            # `now`. This matches the run_at the non-coalescing path would reach
+            # after firing once per missed interval, but in a single step.
+            missed = (now - task.run_at) // interval
+            return task.run_at + (missed + 1) * interval
+
+        return task.run_at + interval
+
     def add_callback(self, callback_name: str, callback: Callback) -> None:
         """
         Adds a new callback function to the worker's callback map.

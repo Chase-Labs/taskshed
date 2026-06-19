@@ -84,6 +84,7 @@ class RedisDataStore(DataStore):
             "run_type": task.run_type,
             "interval": task.interval_seconds() if task.interval else "",
             "group_id": task.group_id if task.group_id is not None else "",
+            "coalesce": int(task.coalesce),
         }
 
     def _deserialize_task(self, data: dict) -> Task:
@@ -101,6 +102,7 @@ class RedisDataStore(DataStore):
             run_type=data.get("run_type"),
             interval=interval,
             group_id=data["group_id"] if data.get("group_id") else None,
+            coalesce=bool(int(data.get("coalesce", 1))),
         )
 
     # -------------------------------------------------------------------------------- public methods
