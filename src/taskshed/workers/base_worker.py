@@ -1,11 +1,16 @@
+import asyncio
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Callable, Coroutine, TypeAlias
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task
+from taskshed.utils.errors import IncorrectCallbackNameError
 
 Callback: TypeAlias = Callable[..., Coroutine[Any, Any, Any]]
+
+_logger = logging.getLogger(__name__)
 
 class BaseWorker(ABC):
     """
@@ -32,6 +37,9 @@ class BaseWorker(ABC):
         """
         self._callback_map = callback_map
         self._datastore = datastore
+
+        self._current_tasks: set[asyncio.Task] = set()
+        self._event_loop: asyncio.AbstractEventLoop | None = None
 
     @staticmethod
     def _next_run_at(task: Task, now: datetime) -> datetime:
@@ -62,6 +70,20 @@ class BaseWorker(ABC):
 
         return task.run_at + interval
 
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        """
+        Done-callback for a fired task's coroutine.
+        """
+        self._current_tasks.discard(task)
+
+        # Cancellation (e.g. during shutdown) is expected, not an error.
+        if task.cancelled():
+            return
+
+        exc = task.exception()
+        if exc is not None:
+            _logger.error("Task callback raised an exception", exc_info=exc)
+
     def add_callback(self, callback_name: str, callback: Callback) -> None:
         """
         Adds a new callback function to the worker's callback map.
@@ -88,17 +110,36 @@ class BaseWorker(ABC):
         rescheduling (for recurring tasks) or cleanup (for one-time tasks).
         """
 
-    @abstractmethod
     def _run_task(self, task: Task):
         """
-        Schedules a single task's callback for execution.
-
-        This method should take a `Task` object and schedule its callback
-        coroutine to be run on the event loop.
+        Schedules a single task's callback to run on the event loop.
 
         Args:
             task: The `Task` object to execute.
+
+        Raises:
+            RuntimeError: If the worker's event loop has not been started.
+            IncorrectCallbackNameError: If the task's callback name is not
+                registered in the callback map.
         """
+        if not self._event_loop:
+            raise RuntimeError("Event loop is not running. Call start() first.")
+
+        try:
+            callback = self._callback_map[task.callback]
+        except KeyError as e:
+            raise IncorrectCallbackNameError(
+                f"Callback '{task.callback}' not found in callback map. "
+                f"Available callbacks: {list(self._callback_map.keys())}"
+            ) from e
+
+        _task = self._event_loop.create_task(callback(**task.kwargs))
+
+        # Add future to set of tasks currently running.
+        self._current_tasks.add(_task)
+
+        # On completion, drop it from the pending set and surface any error.
+        _task.add_done_callback(self._on_task_done)
 
     @abstractmethod
     async def start(self):

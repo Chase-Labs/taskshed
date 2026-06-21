@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from datetime import datetime
 
 from taskshed.datastores.base_datastore import DataStore
@@ -51,7 +51,7 @@ class InMemoryDataStore(DataStore):
             wakeups = [task.run_at for task in self._db.values() if not task.paused]
             return min(wakeups) if wakeups else None
 
-    async def fetch_tasks(self, task_ids: Iterable[str]) -> list[Task]:
+    async def fetch_tasks(self, task_ids: Collection[str]) -> list[Task]:
         async with self._lock:
             return [self._db[task_id] for task_id in task_ids if task_id in self._db]
 
@@ -71,7 +71,7 @@ class InMemoryDataStore(DataStore):
                 task.run_at = definition.run_at
 
     async def update_tasks_paused_status(
-        self, task_ids: Iterable[str], paused: bool
+        self, task_ids: Collection[str], paused: bool
     ) -> None:
         async with self._lock:
             for task_id in task_ids:
@@ -87,7 +87,7 @@ class InMemoryDataStore(DataStore):
                 if task.group_id == group_id:
                     task.paused = paused
 
-    async def remove_tasks(self, task_ids: Iterable[str]) -> None:
+    async def remove_tasks(self, task_ids: Collection[str]) -> None:
         async with self._lock:
             for task_id in task_ids:
                 self._db.pop(task_id, None)

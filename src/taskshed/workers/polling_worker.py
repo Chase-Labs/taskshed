@@ -2,8 +2,6 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 from taskshed.datastores.base_datastore import DataStore
-from taskshed.models.task_models import Task
-from taskshed.utils.errors import IncorrectCallbackNameError
 from taskshed.workers.base_worker import BaseWorker, Callback
 
 
@@ -32,8 +30,6 @@ class PollingWorker(BaseWorker):
         self._polling_interval = polling_interval
 
         self._running = False
-        self._current_tasks: set[asyncio.Task] = set()
-        self._event_loop: asyncio.AbstractEventLoop | None = None
         self._lock: asyncio.Lock | None = None
         self._timer_handle: asyncio.TimerHandle | None = None
 
@@ -71,28 +67,6 @@ class PollingWorker(BaseWorker):
                     await self._datastore.remove_tasks(date_tasks)
 
         await self.update_schedule()
-
-    def _run_task(self, task: Task):
-        # Takes the coroutine and schedules it for execution on the event loop.
-        if not self._event_loop:
-            raise RuntimeError("Event loop is not running. Call start() first.")
-
-        try:
-            callback = self._callback_map[task.callback]
-        except KeyError as e:
-            raise IncorrectCallbackNameError(
-                f"Callback '{task.callback}' not found in callback map. "
-                f"Available callbacks: {list(self._callback_map.keys())}"
-            ) from e
-        
-        _task = self._event_loop.create_task(callback(**task.kwargs))
-
-        # Add future to set of tasks currently running.
-        self._current_tasks.add(_task)
-
-        # Add a callback to be run when the future becomes done.
-        # Remove task from pending set when it completes.
-        _task.add_done_callback(self._current_tasks.discard)
 
     # ------------------------------------------------------------------------------ public methods
 

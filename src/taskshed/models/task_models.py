@@ -70,8 +70,13 @@ class Task:
     coalesce: bool = True
 
     def __post_init__(self):
-        if self.run_type == "recurring" and self.interval is None:
-            raise ValueError("An 'interval' must be provided for recurring tasks.")
+        if self.run_type == "recurring":
+            if self.interval is None:
+                raise ValueError("An 'interval' must be provided for recurring tasks.")
+            if self.interval <= timedelta(0):
+                raise ValueError(
+                    "A recurring task's 'interval' must be a positive duration."
+                )
         self.run_at = self.run_at.astimezone(timezone.utc)
 
     def interval_seconds(self) -> float | None:

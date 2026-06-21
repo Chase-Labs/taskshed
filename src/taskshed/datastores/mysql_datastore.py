@@ -1,6 +1,5 @@
-import asyncio
 import json
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -46,7 +45,24 @@ class MySQLConfig:
 
 
 class MySQLDataStore(DataStore):
+    # Columns that may be absent on tables created by older versions of
+    # TaskShed. Maps each column name to the DDL fragment used to add it via
+    # `ALTER TABLE ... ADD COLUMN`.
+    _EXPECTED_COLUMNS = {
+        "coalesce": "`coalesce` tinyint NOT NULL DEFAULT '1'",
+    }
+
     # -------------------------------------------------------------------------------- queries
+
+    _SELECT_EXISTING_COLUMNS_QUERY = """
+    SELECT 
+        `COLUMN_NAME` AS `column_name`
+    FROM
+        information_schema.COLUMNS
+    WHERE
+        `TABLE_SCHEMA` = DATABASE()
+            AND `TABLE_NAME` = '_taskshed_data';
+    """
 
     _CREATE_TABLE_QUERY = """
     CREATE TABLE IF NOT EXISTS `_taskshed_data` (
@@ -85,7 +101,7 @@ class MySQLDataStore(DataStore):
     """
 
     _INSERT_TASKS_WITHOUT_REPLACEMENT_QUERY = """
-    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`)
+    INSERT IGNORE INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
 
@@ -103,7 +119,7 @@ class MySQLDataStore(DataStore):
 
     _SELECT_TASKS_QUERY = """
     SELECT
-        *
+        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`
     FROM
         _taskshed_data
     WHERE
@@ -111,8 +127,8 @@ class MySQLDataStore(DataStore):
     """
 
     _SELECT_DUE_TASKS_QUERY = """
-    SELECT 
-        *
+    SELECT
+        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`
     FROM
         _taskshed_data
     WHERE
@@ -131,7 +147,7 @@ class MySQLDataStore(DataStore):
 
     _SELECT_GROUP_TASKS_QUERY = """
     SELECT
-        *
+        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`
     FROM
         _taskshed_data
     WHERE
@@ -164,37 +180,58 @@ class MySQLDataStore(DataStore):
 
     # -------------------------------------------------------------------------------- private methods
 
-    def __init__(self, config: MySQLConfig):
+    def __init__(self, *, config: MySQLConfig | None = None, pool: aiomysql.Pool | None = None):
+        if config is None and pool is None:
+            raise ValueError("Must provide either a MySQLConfig or an aiomysql.Pool.")
         self._config = config
-        self._lock: asyncio.Lock | None = None
-        self._pool: aiomysql.Pool | None = None
+        self._pool = pool
+        self._injected_pool = pool is not None
+        self._started = False
 
     @asynccontextmanager
     async def _get_cursor(self) -> AsyncGenerator[aiomysql.Cursor, None]:
         connection: aiomysql.Connection = await self._pool.acquire()
-        cursor: aiomysql.Cursor = await connection.cursor()
+        autocommit = connection.get_autocommit()
+
+        # force a tuple cursor regardless of the pool's default cursor type
+        cursor: aiomysql.Cursor = await connection.cursor(aiomysql.Cursor)
         try:
             yield cursor
+        except BaseException:
+            if not autocommit:
+                await connection.rollback()
+            raise
+        else:
+            if not autocommit:
+                await connection.commit()
         finally:
             await cursor.close()
             self._pool.release(connection)
 
-    def _create_task(self, row: dict) -> Task:
-        if row["interval"] is not None:
-            interval = timedelta(seconds=row["interval"])
-        else:
-            interval = None
+    def _create_task(self, row: tuple) -> Task:
+        # Column order must match the SELECT statements above.
+        (
+            task_id,
+            run_at,
+            paused,
+            callback,
+            kwargs,
+            run_type,
+            interval,
+            group_id,
+            coalesce,
+        ) = row
 
         return Task(
-            task_id=row["task_id"],
-            run_at=self._convert_timestamp(row["run_at"]),
-            paused=bool(row["paused"]),
-            callback=row["callback"],
-            kwargs=json.loads(row["kwargs"]),
-            run_type=row["run_type"],
-            interval=interval,
-            group_id=row["group_id"],
-            coalesce=bool(row["coalesce"]),
+            task_id=task_id,
+            run_at=self._convert_timestamp(run_at),
+            paused=bool(paused),
+            callback=callback,
+            kwargs=json.loads(kwargs),
+            run_type=run_type,
+            interval=timedelta(seconds=interval) if interval is not None else None,
+            group_id=group_id,
+            coalesce=bool(coalesce),
         )
 
     def _convert_datetime(self, dt: datetime) -> int:
@@ -203,36 +240,58 @@ class MySQLDataStore(DataStore):
     def _convert_timestamp(self, timestamp: int) -> datetime:
         return datetime.fromtimestamp(timestamp / 1_000_000, tz=timezone.utc)
 
+    async def _reconcile_columns(self, cursor: aiomysql.Cursor) -> None:
+        """
+        Adds any columns missing from a pre-existing table.
+        """
+        await cursor.execute(self._SELECT_EXISTING_COLUMNS_QUERY)
+        rows = await cursor.fetchall()
+        existing = {row[0] for row in rows}
+
+        additions = [
+            f"ADD COLUMN {ddl}"
+            for column, ddl in self._EXPECTED_COLUMNS.items()
+            if column not in existing
+        ]
+        if additions:
+            await cursor.execute(
+                f"ALTER TABLE `_taskshed_data` {', '.join(additions)};"
+            )
+
     # -------------------------------------------------------------------------------- public methods
 
     async def start(self):
-        if self._pool is not None:
+        if self._started:
             return
 
-        self._lock = asyncio.Lock()
-        async with self._lock:
+        if not self._injected_pool:
             self._pool = await aiomysql.create_pool(
                 **{
                     **self._config.__dict__,
                     "charset": "utf8mb4",
                     "use_unicode": True,
                     "autocommit": True,
-                    "cursorclass": aiomysql.DictCursor,
                 }
             )
 
-        # Create the table if it doesn't already exist
+        # Create the table if it doesn't already exist, then bring an existing
+        # table up to date with any newly introduced columns.
         async with self._get_cursor() as cursor:
             await cursor.execute(self._CREATE_TABLE_QUERY)
+            await self._reconcile_columns(cursor)
+
+        self._started = True
 
     async def shutdown(self):
-        if self._pool is None:
+        self._started = False
+
+        if self._pool is None or self._injected_pool:
+            # an injected pool should not be closed by the datastore
             return
 
         self._pool.close()
         await self._pool.wait_closed()
         self._pool = None
-        self._lock = None
 
     async def add_tasks(
         self, tasks: Iterable[Task], *, replace_existing: bool = True
@@ -244,47 +303,45 @@ class MySQLDataStore(DataStore):
         )
 
         async with self._get_cursor() as cursor:
-            try:
-                await cursor.executemany(
-                    query,
+            await cursor.executemany(
+                query,
+                (
                     (
-                        (
-                            task.task_id,
-                            self._convert_datetime(task.run_at),
-                            task.paused,
-                            task.callback,
-                            json.dumps(task.kwargs, separators=COMPACT_JSON_SEPARATORS),
-                            task.run_type,
-                            task.interval_seconds(),
-                            task.group_id,
-                            int(task.coalesce),
-                        )
-                        for task in tasks
-                    ),
-                )
-            except aiomysql.IntegrityError:
-                return
+                        task.task_id,
+                        self._convert_datetime(task.run_at),
+                        task.paused,
+                        task.callback,
+                        json.dumps(task.kwargs, separators=COMPACT_JSON_SEPARATORS),
+                        task.run_type,
+                        task.interval_seconds(),
+                        task.group_id,
+                        int(task.coalesce),
+                    )
+                    for task in tasks
+                ),
+            )
 
     async def fetch_due_tasks(self, dt: datetime) -> list[Task]:
-        async with self._lock:
-            async with self._get_cursor() as cursor:
-                await cursor.execute(
-                    self._SELECT_DUE_TASKS_QUERY, (self._convert_datetime(dt),)
-                )
-                rows = await cursor.fetchall()
+        async with self._get_cursor() as cursor:
+            await cursor.execute(
+                self._SELECT_DUE_TASKS_QUERY, (self._convert_datetime(dt),)
+            )
+            rows = await cursor.fetchall()
 
-            return [self._create_task(row) for row in rows]
+        return [self._create_task(row) for row in rows]
 
     async def fetch_next_wakeup(self) -> datetime | None:
-        async with self._lock:
-            async with self._get_cursor() as cursor:
-                await cursor.execute(self._SELECT_NEXT_WAKEUP_QUERY)
-                row = await cursor.fetchone()
+        async with self._get_cursor() as cursor:
+            await cursor.execute(self._SELECT_NEXT_WAKEUP_QUERY)
+            row = await cursor.fetchone()
 
-            if row and row["next_wakeup"]:
-                return self._convert_timestamp(row["next_wakeup"])
+        if row and row[0] is not None:
+            return self._convert_timestamp(row[0])
 
-    async def fetch_tasks(self, task_ids: Iterable[str]) -> list[Task]:
+    async def fetch_tasks(self, task_ids: Collection[str]) -> list[Task]:
+        if not task_ids:
+            return []
+
         async with self._get_cursor() as cursor:
             await cursor.execute(self._SELECT_TASKS_QUERY, (task_ids,))
             rows = await cursor.fetchall()
@@ -310,7 +367,7 @@ class MySQLDataStore(DataStore):
             )
 
     async def update_tasks_paused_status(
-        self, task_ids: Iterable[str], paused: bool
+        self, task_ids: Collection[str], paused: bool
     ) -> None:
         async with self._get_cursor() as cursor:
             await cursor.execute(
@@ -321,15 +378,16 @@ class MySQLDataStore(DataStore):
         async with self._get_cursor() as cursor:
             await cursor.execute(self._UPDATE_GROUP_PAUSE_QUERY, (paused, group_id))
 
-    async def remove_tasks(self, task_ids: Iterable[str]) -> None:
-        async with self._lock:
-            async with self._get_cursor() as cursor:
-                await cursor.execute(self._DELETE_TASKS_QUERY, (task_ids,))
+    async def remove_tasks(self, task_ids: Collection[str]) -> None:
+        if not task_ids:
+            return
+
+        async with self._get_cursor() as cursor:
+            await cursor.execute(self._DELETE_TASKS_QUERY, (task_ids,))
 
     async def remove_all_tasks(self) -> None:
-        async with self._lock:
-            async with self._get_cursor() as cursor:
-                await cursor.execute(self._DELETE_ALL_TASKS_QUERY)
+        async with self._get_cursor() as cursor:
+            await cursor.execute(self._DELETE_ALL_TASKS_QUERY)
 
     async def remove_group_tasks(self, group_id: str) -> None:
         async with self._get_cursor() as cursor:

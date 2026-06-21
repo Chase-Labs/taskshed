@@ -79,7 +79,7 @@ async def benchmark_apscheduler_high_concurrency(num_tasks: int):
 
     schedule_start = perf_counter()
     for _ in range(num_tasks):
-        scheduler.add_task(
+        scheduler.add_job(
             id=uuid4().hex,
             func=observer.callback,
             trigger="date",
@@ -140,5 +140,5 @@ if __name__ == "__main__":
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.create_task(benchmark_taskshed_redis_high_concurrency(NUM_TASKS))
+    loop.create_task(benchmark_apscheduler_high_concurrency(NUM_TASKS))
     loop.run_forever()

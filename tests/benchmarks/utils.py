@@ -53,9 +53,10 @@ async def build_redis_taskshed(callback_map: dict) -> AsyncScheduler:
 
 
 def build_apscheduler() -> APAsyncIOScheduler:
+    _load_env()
     jobstores = {
         "default": SQLAlchemyJobStore(
-            url="mysql+pymysql://root:-Ft7dnc168117tR2SI9ar00aV5SYZ-TWi_qMtvZLjzk@localhost/scheduling"
+            url=f"mysql+pymysql://{os.environ.get('MYSQL_USER')}:{os.environ.get('MYSQL_PASSWORD')}@{os.environ.get('MYSQL_HOST')}/{os.environ.get('MYSQL_DB')}"
         )
     }
     executors = {"default": APAsyncIOExecutor()}

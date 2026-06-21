@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Literal, TypeVar
 from uuid import uuid4
@@ -123,7 +123,7 @@ class AsyncScheduler:
     async def fetch_tasks(
         self,
         *,
-        task_ids: Iterable[str] | None = None,
+        task_ids: Collection[str] | None = None,
         group_id: str | None = None,
     ) -> list[Task]:
         """
@@ -150,7 +150,7 @@ class AsyncScheduler:
     async def pause_tasks(
         self,
         *,
-        task_ids: Iterable[str] | None = None,
+        task_ids: Collection[str] | None = None,
         group_id: str | None = None,
     ):
         """
@@ -178,7 +178,7 @@ class AsyncScheduler:
     async def remove_tasks(
         self,
         *,
-        task_ids: Iterable[str] | None = None,
+        task_ids: Collection[str] | None = None,
         group_id: str | None = None,
     ):
         """
@@ -204,7 +204,7 @@ class AsyncScheduler:
     async def resume_tasks(
         self,
         *,
-        task_ids: Iterable[str] | None = None,
+        task_ids: Collection[str] | None = None,
         group_id: str | None = None,
     ):
         """

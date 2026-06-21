@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # -------------------------------------------------------------------------------- project metadata
 [project]
 name = "taskshed"
-version = "0.8.2"
+version = "0.9.0"
 authors = [
   { name = "Jacob Strauss", email = "jacob@chaselabs.ai" }
 ]
@@ -44,13 +44,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14"
 ]
-dependencies = [
-    "aiomysql>=0.3.2",
-    "pytest>=9.1.1",
-    "pytest-asyncio>=1.4.0",
-    "python-dotenv>=1.2.2",
-    "redis>=7.4.0",
-]
+dependencies = []
 
 # -------------------------------------------------------------------------------- urls
 [project.urls]
@@ -64,10 +58,24 @@ mysql = [
     "aiomysql>=0.3.2",
 ]
 redis = [
-    "redis>=6.0.0",
+    "redis>=5.0.1",
 ]
 all = [
     "taskshed[mysql,redis]"
+]
+
+# -------------------------------------------------------------------------------- dev / test dependencies
+[dependency-groups]
+dev = [
+    "aiomysql>=0.3.2",
+    "apscheduler>=3.11.2",
+    "arq>=0.28.0",
+    "redis>=5.0.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "python-dotenv>=1.2.2",
+    "rq-scheduler>=0.14.0",
+    "SQLAlchemy>=2.0.51",
 ]
 
 # -------------------------------------------------------------------------------- dependencies

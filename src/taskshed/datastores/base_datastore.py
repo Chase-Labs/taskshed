@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Iterable
+from typing import Collection, Iterable
 
 from taskshed.models.task_models import Task, TaskExecutionTime
 
@@ -24,7 +24,7 @@ class DataStore(ABC):
     async def fetch_next_wakeup(self) -> datetime | None: ...
 
     @abstractmethod
-    async def fetch_tasks(self, task_ids: Iterable[str]) -> list[Task]: ...
+    async def fetch_tasks(self, task_ids: Collection[str]) -> list[Task]: ...
 
     @abstractmethod
     async def fetch_group_tasks(self, group_id: str) -> list[Task]: ...
@@ -34,14 +34,14 @@ class DataStore(ABC):
 
     @abstractmethod
     async def update_tasks_paused_status(
-        self, task_ids: Iterable[str], paused: bool
+        self, task_ids: Collection[str], paused: bool
     ) -> None: ...
 
     @abstractmethod
     async def update_group_paused_status(self, group_id: str, paused: bool) -> None: ...
 
     @abstractmethod
-    async def remove_tasks(self, task_ids: Iterable[str]) -> None: ...
+    async def remove_tasks(self, task_ids: Collection[str]) -> None: ...
 
     @abstractmethod
     async def remove_all_tasks(self) -> None: ...

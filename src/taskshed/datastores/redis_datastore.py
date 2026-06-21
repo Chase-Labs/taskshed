@@ -1,8 +1,8 @@
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from math import isinf
-from typing import Iterable
+from typing import Collection, Iterable
 
 from redis.asyncio import Redis
 
@@ -95,7 +95,7 @@ class RedisDataStore(DataStore):
 
         return Task(
             task_id=data["task_id"],
-            run_at=datetime.fromtimestamp(float(data["run_at"])),
+            run_at=datetime.fromtimestamp(float(data["run_at"]), tz=timezone.utc),
             paused=bool(int(data["paused"])),
             callback=data["callback"],
             kwargs=json.loads(data["kwargs"]),
@@ -126,7 +126,7 @@ class RedisDataStore(DataStore):
         if self._client is None:
             return
 
-        await self._client.close()
+        await self._client.aclose()
         self._client = None
 
     async def add_tasks(
@@ -148,7 +148,7 @@ class RedisDataStore(DataStore):
                 )
             else:
                 args = [item for pair in serialized_task.items() for item in pair]
-                self._hsetallnx(
+                await self._hsetallnx(
                     keys=[self._get_task_index(task.task_id)],
                     args=args,
                     client=pipeline,  # Execute the script within the pipeline
@@ -181,9 +181,9 @@ class RedisDataStore(DataStore):
         if res:
             next_wakeup = res[0][1]
             if not isinf(next_wakeup):
-                return datetime.fromtimestamp(next_wakeup)
+                return datetime.fromtimestamp(next_wakeup, tz=timezone.utc)
 
-    async def fetch_tasks(self, task_ids: Iterable[str]) -> list[Task]:
+    async def fetch_tasks(self, task_ids: Collection[str]) -> list[Task]:
         if not task_ids:
             return []
 
@@ -215,33 +215,68 @@ class RedisDataStore(DataStore):
         await pipeline.execute()
 
     async def update_tasks_paused_status(
-        self, task_ids: Iterable[str], paused: bool
+        self, task_ids: Collection[str], paused: bool
     ) -> None:
-        pipeline = self._client.pipeline()
-        for task_id in task_ids:
-            task_idx = self._get_task_index(task_id)
-            pipeline.hset(task_idx, "paused", int(paused))
-            if paused:
+        if paused:
+            # Pausing needs no reads, just set each task's paused 
+            # field to 1 and its queue score to +inf.
+            pipeline = self._client.pipeline()
+            for task_id in task_ids:
+                pipeline.hset(self._get_task_index(task_id), "paused", "1")
                 pipeline.zadd(self._queue_index, {task_id: "+inf"}, xx=True)
-            else:
-                timestamp = await self._client.hget(task_idx, "run_at")
-                pipeline.zadd(self._queue_index, {task_id: timestamp}, xx=True)
-        await pipeline.execute()
+            await pipeline.execute()
+            return
+
+        # Resuming restores each task's queue score to its stored run_at. Batch
+        # the reads into a single round-trip rather than one hget per task.
+        task_ids = list(task_ids)
+
+        read = self._client.pipeline()
+        for task_id in task_ids:
+            read.hget(self._get_task_index(task_id), "run_at")
+        timestamps = await read.execute()
+
+        write = self._client.pipeline()
+        for task_id, timestamp in zip(task_ids, timestamps):
+            if timestamp is None:
+                continue
+            write.hset(self._get_task_index(task_id), "paused", "0")
+            write.zadd(self._queue_index, {task_id: timestamp}, xx=True)
+        await write.execute()
 
     async def update_group_paused_status(self, group_id: str, paused: bool) -> None:
-        group_task_ids = await self._client.smembers(self._get_group_index(group_id))
-        pipeline = self._client.pipeline()
-        for task_id in group_task_ids:
-            task_idx = self._get_task_index(task_id)
-            pipeline.hset(task_idx, mapping={"paused": int(paused)})
-            if paused:
-                pipeline.zadd(self._queue_index, mapping={task_id: "+inf"}, xx=True)
-            else:
-                timestamp = await self._client.hget(task_idx, "run_at")
-                pipeline.zadd(self._queue_index, {task_id: timestamp}, xx=True)
-        await pipeline.execute()
+        group_task_ids = list(
+            await self._client.smembers(self._get_group_index(group_id))
+        )
+        if not group_task_ids:
+            return
 
-    async def remove_tasks(self, task_ids: Iterable[str]) -> None:
+        if paused:
+            # Pausing needs no reads, just set each task's paused 
+            # field to 1 and its queue score to +inf.
+            pipeline = self._client.pipeline()
+            for task_id in group_task_ids:
+                pipeline.hset(self._get_task_index(task_id), "paused", "1")
+                pipeline.zadd(self._queue_index, {task_id: "+inf"}, xx=True)
+            await pipeline.execute()
+            return
+
+        # Resuming restores each task's queue score to its stored run_at. Batch
+        # the reads into a single round-trip rather than one hget per task.
+        read = self._client.pipeline()
+        for task_id in group_task_ids:
+            read.hget(self._get_task_index(task_id), "run_at")
+        timestamps = await read.execute()
+
+        write = self._client.pipeline()
+        for task_id, timestamp in zip(group_task_ids, timestamps):
+            if timestamp is None:
+                continue
+            write.hset(self._get_task_index(task_id), "paused", "0")
+            write.zadd(self._queue_index, {task_id: timestamp}, xx=True)
+        await write.execute()
+
+    async def remove_tasks(self, task_ids: Collection[str]) -> None:
         # Batch get all group_ids first
         pipeline = self._client.pipeline()
         for task_id in task_ids:
