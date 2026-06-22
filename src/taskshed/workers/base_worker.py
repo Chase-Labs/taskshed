@@ -6,7 +6,6 @@ from typing import Any, Callable, Coroutine, TypeAlias
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task
-from taskshed.utils.errors import IncorrectCallbackNameError
 
 Callback: TypeAlias = Callable[..., Coroutine[Any, Any, Any]]
 
@@ -114,26 +113,39 @@ class BaseWorker(ABC):
         """
         Schedules a single task's callback to run on the event loop.
 
+        A malformed task (e.g., unregistered callback or mismatched kwargs) is logged
+        and skipped, but does not stop the worker from processing other tasks.
+
         Args:
             task: The `Task` object to execute.
 
         Raises:
             RuntimeError: If the worker's event loop has not been started.
-            IncorrectCallbackNameError: If the task's callback name is not
-                registered in the callback map.
         """
         if not self._event_loop:
             raise RuntimeError("Event loop is not running. Call start() first.")
 
         try:
             callback = self._callback_map[task.callback]
-        except KeyError as e:
-            raise IncorrectCallbackNameError(
-                f"Callback '{task.callback}' not found in callback map. "
-                f"Available callbacks: {list(self._callback_map.keys())}"
-            ) from e
+        except KeyError:
+            _logger.error(
+                "Run Task - Skipping task '%s': callback '%s' is not registered. "
+                "Available callbacks: %s",
+                task.task_id,
+                task.callback,
+                list(self._callback_map),
+            )
+            return
 
-        _task = self._event_loop.create_task(callback(**task.kwargs))
+        try:
+            _task = self._event_loop.create_task(callback(**task.kwargs))
+        except TypeError:
+            _logger.exception(
+                "Run Task - Skipping task '%s': kwargs do not match callback '%s'.",
+                task.task_id,
+                task.callback,
+            )
+            return
 
         # Add future to set of tasks currently running.
         self._current_tasks.add(_task)
