@@ -5,11 +5,11 @@ from random import shuffle
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
-from zoneinfo import ZoneInfo
 
 from taskshed.datastores.memory_datastore import InMemoryDataStore
 from taskshed.datastores.mysql_datastore import MySQLConfig, MySQLDataStore
