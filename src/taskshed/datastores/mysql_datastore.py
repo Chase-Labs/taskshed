@@ -50,6 +50,7 @@ class MySQLDataStore(DataStore):
     # `ALTER TABLE ... ADD COLUMN`.
     _EXPECTED_COLUMNS = {
         "coalesce": "`coalesce` tinyint NOT NULL DEFAULT '1'",
+        "paused_at": "`paused_at` bigint unsigned DEFAULT NULL",
     }
 
     # -------------------------------------------------------------------------------- queries
@@ -75,6 +76,7 @@ class MySQLDataStore(DataStore):
         `interval` float DEFAULT NULL,
         `group_id` varchar(63) DEFAULT NULL,
         `coalesce` tinyint NOT NULL DEFAULT '1',
+        `paused_at` bigint unsigned DEFAULT NULL,
         PRIMARY KEY (`task_id`),
         UNIQUE KEY `task_id_UNIQUE` (`task_id`),
         KEY `idx_group_id` (`group_id`),
@@ -101,25 +103,26 @@ class MySQLDataStore(DataStore):
     """
 
     _INSERT_TASKS_WITHOUT_REPLACEMENT_QUERY = """
-    INSERT IGNORE INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+    INSERT IGNORE INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`, `paused_at`)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
 
     _INSERT_TASKS_WITH_REPLACEMENT_QUERY = """
-    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) AS new
+    INSERT INTO _taskshed_data (`task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`, `paused_at`)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) AS new
         ON DUPLICATE KEY UPDATE
             `run_at` = new.run_at,
             `callback` = new.callback,
             `kwargs` = new.kwargs,
             `paused` = new.paused,
             `group_id` = new.group_id,
-            `coalesce` = new.coalesce;
+            `coalesce` = new.coalesce,
+            `paused_at` = new.paused_at;
     """
 
     _SELECT_TASKS_QUERY = """
     SELECT
-        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`
+        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`, `paused_at`
     FROM
         _taskshed_data
     WHERE
@@ -128,7 +131,7 @@ class MySQLDataStore(DataStore):
 
     _SELECT_DUE_TASKS_QUERY = """
     SELECT
-        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`
+        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`, `paused_at`
     FROM
         _taskshed_data
     WHERE
@@ -147,7 +150,7 @@ class MySQLDataStore(DataStore):
 
     _SELECT_GROUP_TASKS_QUERY = """
     SELECT
-        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`
+        `task_id`, `run_at`, `paused`, `callback`, `kwargs`, `run_type`, `interval`, `group_id`, `coalesce`, `paused_at`
     FROM
         _taskshed_data
     WHERE
@@ -161,19 +164,39 @@ class MySQLDataStore(DataStore):
     WHERE
         `task_id` = %s;
     """
-
-    _UPDATE_TASKS_PAUSED_STATUS_QUERY = """
+    
+    _PAUSE_TASKS_QUERY = """
     UPDATE _taskshed_data
     SET
-        `paused` = %s
+        `paused` = 1,
+        `paused_at` = COALESCE(`paused_at`, %s)
     WHERE
         `task_id` IN %s;
     """
 
-    _UPDATE_GROUP_PAUSE_QUERY = """
+    _RESUME_TASKS_QUERY = """
     UPDATE _taskshed_data
     SET
-        `paused` = %s
+        `paused` = 0,
+        `paused_at` = NULL
+    WHERE
+        `task_id` IN %s;
+    """
+
+    _PAUSE_GROUP_QUERY = """
+    UPDATE _taskshed_data
+    SET
+        `paused` = 1,
+        `paused_at` = COALESCE(`paused_at`, %s)
+    WHERE
+        `group_id` = %s;
+    """
+
+    _RESUME_GROUP_QUERY = """
+    UPDATE _taskshed_data
+    SET
+        `paused` = 0,
+        `paused_at` = NULL
     WHERE
         `group_id` = %s;
     """
@@ -220,6 +243,7 @@ class MySQLDataStore(DataStore):
             interval,
             group_id,
             coalesce,
+            paused_at,
         ) = row
 
         return Task(
@@ -232,6 +256,9 @@ class MySQLDataStore(DataStore):
             interval=timedelta(seconds=interval) if interval is not None else None,
             group_id=group_id,
             coalesce=bool(coalesce),
+            paused_at=(
+                self._convert_timestamp(paused_at) if paused_at is not None else None
+            ),
         )
 
     def _convert_datetime(self, dt: datetime) -> int:
@@ -316,6 +343,9 @@ class MySQLDataStore(DataStore):
                         task.interval_seconds(),
                         task.group_id,
                         int(task.coalesce),
+                        self._convert_datetime(task.paused_at)
+                        if task.paused_at is not None
+                        else None,
                     )
                     for task in tasks
                 ),
@@ -370,13 +400,19 @@ class MySQLDataStore(DataStore):
         self, task_ids: Collection[str], paused: bool
     ) -> None:
         async with self._get_cursor() as cursor:
-            await cursor.execute(
-                self._UPDATE_TASKS_PAUSED_STATUS_QUERY, (paused, task_ids)
-            )
+            if paused:
+                now = self._convert_datetime(datetime.now(timezone.utc))
+                await cursor.execute(self._PAUSE_TASKS_QUERY, (now, task_ids))
+            else:
+                await cursor.execute(self._RESUME_TASKS_QUERY, (task_ids,))
 
     async def update_group_paused_status(self, group_id: str, paused: bool) -> None:
         async with self._get_cursor() as cursor:
-            await cursor.execute(self._UPDATE_GROUP_PAUSE_QUERY, (paused, group_id))
+            if paused:
+                now = self._convert_datetime(datetime.now(timezone.utc))
+                await cursor.execute(self._PAUSE_GROUP_QUERY, (now, group_id))
+            else:
+                await cursor.execute(self._RESUME_GROUP_QUERY, (group_id,))
 
     async def remove_tasks(self, task_ids: Collection[str]) -> None:
         if not task_ids:

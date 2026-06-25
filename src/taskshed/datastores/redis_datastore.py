@@ -85,6 +85,7 @@ class RedisDataStore(DataStore):
             "interval": task.interval_seconds() if task.interval else "",
             "group_id": task.group_id if task.group_id is not None else "",
             "coalesce": int(task.coalesce),
+            "paused_at": task.paused_at.timestamp() if task.paused_at is not None else "",
         }
 
     def _deserialize_task(self, data: dict) -> Task:
@@ -92,6 +93,8 @@ class RedisDataStore(DataStore):
             interval = timedelta(seconds=float(data["interval"]))
         else:
             interval = None
+
+        paused_at = data.get("paused_at")
 
         return Task(
             task_id=data["task_id"],
@@ -103,6 +106,11 @@ class RedisDataStore(DataStore):
             interval=interval,
             group_id=data["group_id"] if data.get("group_id") else None,
             coalesce=bool(int(data.get("coalesce", 1))),
+            paused_at=(
+                datetime.fromtimestamp(float(paused_at), tz=timezone.utc)
+                if paused_at
+                else None
+            ),
         )
 
     # -------------------------------------------------------------------------------- public methods
@@ -214,23 +222,32 @@ class RedisDataStore(DataStore):
             pipeline.zadd(self._queue_index, {task.task_id: timestamp}, xx=True)
         await pipeline.execute()
 
-    async def update_tasks_paused_status(
-        self, task_ids: Collection[str], paused: bool
-    ) -> None:
+    async def _apply_paused_status(self, task_ids: list[str], paused: bool) -> None:
+        # Both paths are two-phase: read first (to avoid overwriting paused_at
+        # when pausing, and to fetch run_at when resuming), then write. Tasks
+        # whose hash no longer exists are skipped so we never create a phantom.
         if paused:
-            # Pausing needs no reads, just set each task's paused 
-            # field to 1 and its queue score to +inf.
-            pipeline = self._client.pipeline()
+            read = self._client.pipeline()
             for task_id in task_ids:
-                pipeline.hset(self._get_task_index(task_id), "paused", "1")
-                pipeline.zadd(self._queue_index, {task_id: "+inf"}, xx=True)
-            await pipeline.execute()
+                read.hget(self._get_task_index(task_id), "paused_at")
+            existing = await read.execute()
+
+            now_ts = datetime.now(timezone.utc).timestamp()
+            write = self._client.pipeline()
+            for task_id, paused_at in zip(task_ids, existing):
+                if paused_at is None:
+                    continue  # task hash doesn't exist
+                task_idx = self._get_task_index(task_id)
+                write.hset(task_idx, "paused", "1")
+                # Idempotent: only stamp paused_at if not already paused ("").
+                if not paused_at:
+                    write.hset(task_idx, "paused_at", now_ts)
+                write.zadd(self._queue_index, {task_id: "+inf"}, xx=True)
+            await write.execute()
             return
 
-        # Resuming restores each task's queue score to its stored run_at. Batch
-        # the reads into a single round-trip rather than one hget per task.
-        task_ids = list(task_ids)
-
+        # Resuming restores each task's queue score to its stored run_at and
+        # clears paused_at.
         read = self._client.pipeline()
         for task_id in task_ids:
             read.hget(self._get_task_index(task_id), "run_at")
@@ -240,9 +257,16 @@ class RedisDataStore(DataStore):
         for task_id, timestamp in zip(task_ids, timestamps):
             if timestamp is None:
                 continue
-            write.hset(self._get_task_index(task_id), "paused", "0")
+            task_idx = self._get_task_index(task_id)
+            write.hset(task_idx, "paused", "0")
+            write.hset(task_idx, "paused_at", "")
             write.zadd(self._queue_index, {task_id: timestamp}, xx=True)
         await write.execute()
+
+    async def update_tasks_paused_status(
+        self, task_ids: Collection[str], paused: bool
+    ) -> None:
+        await self._apply_paused_status(list(task_ids), paused)
 
     async def update_group_paused_status(self, group_id: str, paused: bool) -> None:
         group_task_ids = list(
@@ -250,31 +274,7 @@ class RedisDataStore(DataStore):
         )
         if not group_task_ids:
             return
-
-        if paused:
-            # Pausing needs no reads, just set each task's paused 
-            # field to 1 and its queue score to +inf.
-            pipeline = self._client.pipeline()
-            for task_id in group_task_ids:
-                pipeline.hset(self._get_task_index(task_id), "paused", "1")
-                pipeline.zadd(self._queue_index, {task_id: "+inf"}, xx=True)
-            await pipeline.execute()
-            return
-
-        # Resuming restores each task's queue score to its stored run_at. Batch
-        # the reads into a single round-trip rather than one hget per task.
-        read = self._client.pipeline()
-        for task_id in group_task_ids:
-            read.hget(self._get_task_index(task_id), "run_at")
-        timestamps = await read.execute()
-
-        write = self._client.pipeline()
-        for task_id, timestamp in zip(group_task_ids, timestamps):
-            if timestamp is None:
-                continue
-            write.hset(self._get_task_index(task_id), "paused", "0")
-            write.zadd(self._queue_index, {task_id: timestamp}, xx=True)
-        await write.execute()
+        await self._apply_paused_status(group_task_ids, paused)
 
     async def remove_tasks(self, task_ids: Collection[str]) -> None:
         # Batch get all group_ids first

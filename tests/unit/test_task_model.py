@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -39,3 +40,23 @@ def test_recurring_accepts_positive_interval():
 def test_once_task_ignores_interval():
     task = _create_task(run_type="once", interval=None)
     assert task.run_type == "once"
+
+
+def test_paused_at_defaults_to_none_when_not_paused():
+    task = _create_task()
+    assert task.paused is False
+    assert task.paused_at is None
+
+
+def test_paused_task_auto_sets_paused_at():
+    task = _create_task(paused=True)
+    assert task.paused_at is not None
+    assert task.paused_at.tzinfo is not None
+    assert task.paused_at.utcoffset() == timedelta(0)
+
+
+def test_explicit_paused_at_is_normalized_to_utc():
+    aware = datetime(2025, 1, 1, 12, 0, tzinfo=ZoneInfo("America/New_York"))
+    task = _create_task(paused=True, paused_at=aware)
+    assert task.paused_at.utcoffset() == timedelta(0)
+    assert task.paused_at == aware  # same instant, UTC-normalized

@@ -94,6 +94,23 @@ async def test_coalesce_round_trip(store: RedisDataStore):
 
 
 @pytest.mark.asyncio
+async def test_paused_at_round_trip(store: RedisDataStore):
+    run_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    paused_task = Task(task_id="paused", callback="cb", run_at=run_at, paused=True)
+    unpaused_task = Task(task_id="unpaused", callback="cb", run_at=run_at)
+    await store.add_tasks((paused_task, unpaused_task))
+
+    fetched = {t.task_id: t for t in await store.fetch_tasks(["paused", "unpaused"])}
+
+    # A paused task round-trips its (tz-aware, UTC) paused_at...
+    assert fetched["paused"].paused_at is not None
+    assert fetched["paused"].paused_at.tzinfo is not None
+    assert fetched["paused"].paused_at == paused_task.paused_at
+    # ...and an unpaused task has none.
+    assert fetched["unpaused"].paused_at is None
+
+
+@pytest.mark.asyncio
 async def test_add_without_replacing_persists_new_task(store: RedisDataStore):
     # Regression: the no-replace path runs a Lua script into the pipeline; if
     # that command is not awaited it is silently dropped, leaving a queue entry

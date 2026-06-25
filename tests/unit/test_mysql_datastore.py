@@ -84,3 +84,22 @@ async def test_remove_tasks_with_empty_collection(datastore: MySQLDataStore):
 
     fetched = await datastore.fetch_tasks(["keep"])
     assert len(fetched) == 1
+
+
+@pytest.mark.asyncio
+async def test_paused_at_round_trip(datastore: MySQLDataStore):
+    run_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    paused_task = Task(task_id="paused", callback="cb", run_at=run_at, paused=True)
+    unpaused_task = Task(task_id="unpaused", callback="cb", run_at=run_at)
+    await datastore.add_tasks((paused_task, unpaused_task))
+
+    fetched = {
+        t.task_id: t for t in await datastore.fetch_tasks(["paused", "unpaused"])
+    }
+
+    # A paused task round-trips its (tz-aware, UTC) paused_at...
+    assert fetched["paused"].paused_at is not None
+    assert fetched["paused"].paused_at.tzinfo is not None
+    assert fetched["paused"].paused_at == paused_task.paused_at
+    # ...and an unpaused task has none.
+    assert fetched["unpaused"].paused_at is None

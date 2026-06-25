@@ -81,9 +81,11 @@ async def test_startup_adds_missing_coalesce_column(datastore: MySQLDataStore):
         # Reconciliation is idempotent — a second pass is a no-op.
         await datastore._reconcile_columns(cursor)
 
-    # The legacy row backfills to the column default (coalesce enabled).
+    # The legacy row backfills to the column defaults: coalesce enabled, and
+    # the newly-added nullable paused_at column is NULL.
     legacy = (await datastore.fetch_tasks(["legacy"]))[0]
     assert legacy.coalesce is True
+    assert legacy.paused_at is None
 
     # New rows persist an explicit coalesce value across the round trip.
     await datastore.add_tasks(

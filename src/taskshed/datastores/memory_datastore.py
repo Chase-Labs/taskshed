@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import Collection, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 
 from taskshed.datastores.base_datastore import DataStore
 from taskshed.models.task_models import Task, TaskExecutionTime
@@ -15,6 +15,19 @@ class InMemoryDataStore(DataStore):
     def __init__(self):
         self._db: dict[str, Task] = {}
         self._lock: asyncio.Lock | None = None
+
+    # -------------------------------------------------------------------------------- private methods
+
+    @staticmethod
+    def _set_paused(task: Task, paused: bool) -> None:
+        task.paused = paused
+        if paused:
+            if task.paused_at is None:
+                task.paused_at = datetime.now(timezone.utc)
+        else:
+            task.paused_at = None
+
+    # -------------------------------------------------------------------------------- public methods
 
     async def start(self) -> None:
         if self._lock is not None:
@@ -64,10 +77,10 @@ class InMemoryDataStore(DataStore):
             for definition in tasks:
                 try:
                     task = self._db[definition.task_id]
-                except KeyError:
+                except KeyError as e:
                     raise TaskNotFoundError(
                         f"task with ID {definition.task_id} not found."
-                    )
+                    ) from e
                 task.run_at = definition.run_at
 
     async def update_tasks_paused_status(
@@ -77,15 +90,15 @@ class InMemoryDataStore(DataStore):
             for task_id in task_ids:
                 try:
                     task = self._db[task_id]
-                    task.paused = paused
-                except KeyError:
-                    raise TaskNotFoundError(f"task with ID {task_id} not found.")
+                    self._set_paused(task, paused)
+                except KeyError as e:
+                    raise TaskNotFoundError(f"task with ID {task_id} not found.") from e
 
     async def update_group_paused_status(self, group_id: str, paused: bool) -> None:
         async with self._lock:
             for task in self._db.values():
                 if task.group_id == group_id:
-                    task.paused = paused
+                    self._set_paused(task, paused)
 
     async def remove_tasks(self, task_ids: Collection[str]) -> None:
         async with self._lock:

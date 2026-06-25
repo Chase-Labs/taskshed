@@ -57,6 +57,10 @@ class Task:
             to its next occurrence after the current time, so only the latest
             missed run fires. If ``False``, each missed interval fires once as
             the worker catches up. Has no effect on one-time tasks.
+        paused_at: The time at which the task was paused, or ``None`` when the
+            task is not paused. The timezone is converted to UTC. If a task is
+            constructed as ``paused`` without an explicit ``paused_at``, it is
+            set to the current time.
     """
 
     callback: str
@@ -68,6 +72,7 @@ class Task:
     group_id: str | None = None
     paused: bool = False
     coalesce: bool = True
+    paused_at: datetime | None = None
 
     def __post_init__(self):
         if self.run_type == "recurring":
@@ -78,6 +83,11 @@ class Task:
                     "A recurring task's 'interval' must be a positive duration."
                 )
         self.run_at = self.run_at.astimezone(timezone.utc)
+
+        if self.paused_at is not None:
+            self.paused_at = self.paused_at.astimezone(timezone.utc)
+        elif self.paused:
+            self.paused_at = datetime.now(timezone.utc)
 
     def interval_seconds(self) -> float | None:
         """

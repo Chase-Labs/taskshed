@@ -225,6 +225,62 @@ async def test_pause_and_resume_tasks(scheduler: AsyncScheduler):
 
 
 @pytest.mark.asyncio
+async def test_pause_sets_paused_at_and_resume_clears_it(scheduler: AsyncScheduler):
+    task_id = uuid4().hex
+    await scheduler.add_task(
+        callback="mock_callback",
+        run_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+        task_id=task_id,
+    )
+
+    # An unpaused task has no paused_at.
+    task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
+    assert task.paused is False
+    assert task.paused_at is None
+
+    # Pausing stamps paused_at.
+    await scheduler.pause_tasks(task_ids=[task_id])
+    task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
+    assert task.paused is True
+    assert task.paused_at is not None
+    first_paused_at = task.paused_at
+
+    # Pausing again is idempotent: paused_at must not be overwritten. The sleep
+    # makes a blind overwrite observable (it would advance paused_at).
+    await asyncio.sleep(0.01)
+    await scheduler.pause_tasks(task_ids=[task_id])
+    task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
+    assert task.paused_at == first_paused_at
+
+    # Resuming clears paused_at.
+    await scheduler.resume_tasks(task_ids=[task_id])
+    task = (await scheduler.fetch_tasks(task_ids=[task_id]))[0]
+    assert task.paused is False
+    assert task.paused_at is None
+
+
+@pytest.mark.asyncio
+async def test_group_pause_sets_and_clears_paused_at(scheduler: AsyncScheduler):
+    group_id = "paused-at-group"
+    start_time = datetime.now(timezone.utc) + timedelta(minutes=1)
+    tasks = [
+        Task(run_at=start_time, callback="mock_callback", group_id=group_id)
+        for _ in range(3)
+    ]
+    await scheduler.add_tasks(tasks)
+
+    await scheduler.pause_tasks(group_id=group_id)
+    for task in await scheduler.fetch_tasks(group_id=group_id):
+        assert task.paused is True
+        assert task.paused_at is not None
+
+    await scheduler.resume_tasks(group_id=group_id)
+    for task in await scheduler.fetch_tasks(group_id=group_id):
+        assert task.paused is False
+        assert task.paused_at is None
+
+
+@pytest.mark.asyncio
 async def test_update_task_execution_time(scheduler: AsyncScheduler):
     start_time = datetime.now(timezone.utc) + timedelta(minutes=1)
     group_id = "testing-group-1"
